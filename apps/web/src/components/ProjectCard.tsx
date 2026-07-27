@@ -1,5 +1,6 @@
 import type { Health, Project } from '@cockpit/core';
 import { ago } from '../lib/format.ts';
+import { href } from '../lib/router.ts';
 
 const DOT: Record<Health, string> = {
   green: 'bg-emerald-400',
@@ -49,7 +50,12 @@ export function ProjectCard({ project }: { project: Project }) {
     <div className="rounded-lg border border-line bg-panel p-4 transition-colors hover:border-neutral-600">
       <div className="mb-3 flex items-center gap-2">
         <StatusDot status={project.status} />
-        <h3 className="truncate text-sm font-semibold text-neutral-100">{project.name}</h3>
+        <a
+          href={href.project(project.id)}
+          className="truncate text-sm font-semibold text-neutral-100 hover:underline"
+        >
+          {project.name}
+        </a>
         {project.dream && (
           <span
             className="ml-auto shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-neutral-400"

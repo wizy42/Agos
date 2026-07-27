@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchPortfolio, type Portfolio as PortfolioData } from './lib/api.ts';
+import { fetchPortfolio, type PortfolioPayload } from './lib/api.ts';
+import { href, useRoute } from './lib/router.ts';
+import { useRunStream } from './lib/ws.ts';
 import { Portfolio } from './screens/Portfolio.tsx';
+import { Project } from './screens/Project.tsx';
+import { RunDetail } from './screens/RunDetail.tsx';
 
-export function App() {
-  const [data, setData] = useState<PortfolioData | null>(null);
+function PortfolioScreen() {
+  const [data, setData] = useState<PortfolioPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,11 +27,20 @@ export function App() {
     void load();
   }, [load]);
 
+  useRunStream((msg) => {
+    if (msg.kind === 'run:finished') void load();
+  });
+
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
-      <header className="mb-8 flex items-baseline gap-3 border-b border-line pb-4">
-        <h1 className="text-lg font-semibold tracking-tight text-neutral-100">Cockpit</h1>
-        <span className="text-xs text-neutral-600">Convergence Labs Agent OS</span>
+    <>
+      <div className="mb-6 flex items-center gap-4">
+        <span className="text-[11px] text-neutral-600">
+          7-day spend{' '}
+          <span className="text-neutral-300">
+            {data ? `$${data.spend7d.totalUsd.toFixed(2)}` : '—'}
+          </span>{' '}
+          over {data?.spend7d.runs ?? 0} runs
+        </span>
         <button
           onClick={() => void load()}
           disabled={loading}
@@ -35,7 +48,7 @@ export function App() {
         >
           {loading ? 'Syncing…' : 'Refresh'}
         </button>
-      </header>
+      </div>
 
       {error && (
         <div className="rounded-lg border border-rose-900/60 bg-rose-950/30 p-4 text-sm text-rose-200">
@@ -45,8 +58,26 @@ export function App() {
       )}
 
       {!error && !data && loading && <p className="text-sm text-neutral-500">Loading portfolio…</p>}
-
       {!error && data && <Portfolio projects={data.projects} fetchedAt={data.fetchedAt} />}
+    </>
+  );
+}
+
+export function App() {
+  const route = useRoute();
+
+  return (
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <header className="mb-6 flex items-baseline gap-3 border-b border-line pb-4">
+        <a href={href.portfolio()} className="text-lg font-semibold tracking-tight text-neutral-100">
+          Cockpit
+        </a>
+        <span className="text-xs text-neutral-600">Convergence Labs Agent OS</span>
+      </header>
+
+      {route.name === 'portfolio' && <PortfolioScreen />}
+      {route.name === 'project' && <Project id={route.id} />}
+      {route.name === 'run' && <RunDetail id={route.id} />}
     </div>
   );
 }

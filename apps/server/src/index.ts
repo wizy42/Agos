@@ -1,9 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { config as loadEnv } from 'dotenv';
-import Fastify from 'fastify';
 import { Client } from '@notionhq/client';
 import cockpitConfig from '../../../cockpit.config.ts';
+import { buildApp } from './app.ts';
+import { Store } from './db.ts';
 import { PortfolioService } from './portfolio.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -30,20 +31,8 @@ if (!notionToken) {
 
 const notion = new Client({ auth: notionToken });
 const portfolio = new PortfolioService(notion, cockpitConfig);
-
-const app = Fastify({ logger: false });
-
-app.get('/api/health', async () => ({ ok: true }));
-
-app.get('/api/portfolio', async (_req, reply) => {
-  try {
-    return await portfolio.load();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    reply.code(502);
-    return { error: 'notion_unavailable', message };
-  }
-});
+const store = new Store(repoRoot);
+const { app } = buildApp({ portfolio, store });
 
 const schema = await portfolio.init().catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);

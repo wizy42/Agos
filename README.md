@@ -40,6 +40,22 @@ cockpit.config.ts   Notion ids, dream schedule, notionPageId ↔ repoPath map
 ## Milestones
 
 - **M0 — Skeleton & sync** ✅ registry created, pilot registered, portfolio renders live Notion data
-- M1 — Run & watch
+- **M1 — Run & watch** ✅ launch observer/builder runs, live stream, cost + replayable detail
 - M2 — Dreams
 - M3 — Librarian & polish
+
+## Permission profiles
+
+Enforced in code, never by prompt. Both layers run on every tool call:
+
+| Profile | Tools | Enforcement |
+| --- | --- | --- |
+| `observer` | Read, Glob, Grep, WebSearch, read-only git | Denies non-git shell, chained/redirected commands, all writes |
+| `builder` | + Edit, Write, Bash | `acceptEdits`, confined to the project repo |
+
+The gate is a `PreToolUse` hook rather than `canUseTool` alone. The hook fires
+for *every* tool call, including ones the SDK's classifier would auto-approve
+without prompting — `canUseTool` never sees those, so an observer could
+otherwise shell out to any command deemed read-only, `ls` and `cat` included.
+
+`pnpm test` covers the gate directly.

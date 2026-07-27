@@ -71,6 +71,7 @@ export interface Run {
   projectId: string | null;
   cwd: string;
   permissionProfile: PermissionProfile;
+  prompt: string;
   status: RunStatus;
   startedAt: string;
   endedAt: string | null;
