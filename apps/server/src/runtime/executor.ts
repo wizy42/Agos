@@ -27,6 +27,7 @@ export interface LaunchRequest {
 export class Executor {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly active = new Map<string, AbortController>();
+  private readonly waiters = new Map<string, ((run: Run) => void)[]>();
 
   constructor(
     private readonly store: Store,
@@ -62,6 +63,22 @@ export class Executor {
     });
 
     return this.store.getRun(id)!;
+  }
+
+  /**
+   * Resolves when the run leaves `running`. Used by the dream pipeline, which
+   * must parse the report before moving to the next project.
+   */
+  whenFinished(runId: string): Promise<Run> {
+    const run = this.store.getRun(runId);
+    if (!run) return Promise.reject(new Error(`Unknown run ${runId}`));
+    if (run.status !== 'running') return Promise.resolve(run);
+
+    return new Promise<Run>((res) => {
+      const list = this.waiters.get(runId) ?? [];
+      list.push(res);
+      this.waiters.set(runId, list);
+    });
   }
 
   cancel(runId: string): boolean {
@@ -130,7 +147,15 @@ export class Executor {
         ],
       },
 
-      // Second layer, for anything that still reaches an interactive prompt.
+      /**
+       * Second layer, for anything that still reaches an interactive prompt.
+       *
+       * The SDK logs CLAUDE_SDK_CAN_USE_TOOL_SHADOWED here, because bare
+       * `allowedTools` entries auto-approve before this callback is consulted.
+       * That warning is expected and not a hole: the PreToolUse hook above is
+       * the actual gate and fires for every tool, bare-listed ones included
+       * (verified — a builder Read of /etc/passwd is denied by the hook).
+       */
       canUseTool: async (toolName, input) => {
         const decision = decide(req.permissionProfile, cwd, toolName, input);
         if (decision.behavior === 'deny') {
@@ -187,6 +212,11 @@ export class Executor {
     } finally {
       this.active.delete(runId);
       this.bus.broadcast({ kind: 'run:finished', runId });
+
+      const finished = this.store.getRun(runId);
+      const waiters = this.waiters.get(runId) ?? [];
+      this.waiters.delete(runId);
+      if (finished) for (const resolve of waiters) resolve(finished);
     }
   }
 }

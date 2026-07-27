@@ -5,7 +5,9 @@ import { Client } from '@notionhq/client';
 import cockpitConfig from '../../../cockpit.config.ts';
 import { buildApp } from './app.ts';
 import { Store } from './db.ts';
+import { DreamPipeline } from './dream/pipeline.ts';
 import { PortfolioService } from './portfolio.ts';
+import { startScheduler } from './scheduler.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 loadEnv({ path: resolve(repoRoot, '.env'), quiet: true });
@@ -32,7 +34,7 @@ if (!notionToken) {
 const notion = new Client({ auth: notionToken });
 const portfolio = new PortfolioService(notion, cockpitConfig);
 const store = new Store(repoRoot);
-const { app } = buildApp({ portfolio, store });
+const { app, executor } = buildApp({ portfolio, store });
 
 const schema = await portfolio.init().catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
@@ -46,6 +48,14 @@ if (schema.missing.length) {
       'Those fields will read as empty.',
   );
 }
+
+const pipeline = new DreamPipeline({ repoRoot, store, executor, notion, schema });
+startScheduler({
+  schedule: cockpitConfig.dream.schedule,
+  maxProjectsPerNight: cockpitConfig.dream.maxProjectsPerNight,
+  portfolio,
+  pipeline,
+});
 
 await app.listen({ port: apiPort, host: '127.0.0.1' });
 console.log(`[cockpit] api listening on http://localhost:${apiPort}`);

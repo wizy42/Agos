@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dream": "pnpm --filter @cockpit/server dream",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },

@@ -1,6 +1,17 @@
 import Database from 'better-sqlite3';
 import { resolve } from 'node:path';
-import type { Run, RunEvent, RunStatus } from '@cockpit/core';
+import type { DreamReport, Run, RunEvent, RunStatus } from '@cockpit/core';
+
+/** A dream report as stored, with its provenance. */
+export interface StoredReport {
+  id: string;
+  runId: string;
+  projectId: string;
+  createdAt: string;
+  health: string | null;
+  report: DreamReport;
+  reviewed: boolean;
+}
 
 /**
  * SQLite is telemetry only — runs, streams, costs.
@@ -194,6 +205,81 @@ export class Store {
       type: r.type,
       payload: JSON.parse(r.payload) as unknown,
     }));
+  }
+
+  /** The agent's final text for a run, taken from its result message. */
+  resultText(runId: string): string | null {
+    const row = this.db
+      .prepare(`SELECT payload FROM run_events WHERE run_id = ? AND type = 'result' ORDER BY seq DESC LIMIT 1`)
+      .get(runId) as { payload: string } | undefined;
+    if (!row) return null;
+    const payload = JSON.parse(row.payload) as { result?: unknown };
+    return typeof payload.result === 'string' ? payload.result : null;
+  }
+
+  addReport(report: {
+    id: string;
+    runId: string;
+    projectId: string;
+    createdAt: string;
+    health: string | null;
+    json: unknown;
+  }): void {
+    this.db
+      .prepare(
+        `INSERT INTO reports (id, run_id, project_id, created_at, health, json)
+         VALUES (@id, @runId, @projectId, @createdAt, @health, @json)`,
+      )
+      .run({ ...report, json: JSON.stringify(report.json) });
+  }
+
+  listReports(opts: { projectId?: string; unreviewedOnly?: boolean } = {}): StoredReport[] {
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (opts.projectId) {
+      where.push('project_id = ?');
+      params.push(opts.projectId);
+    }
+    if (opts.unreviewedOnly) where.push('reviewed = 0');
+
+    const sql =
+      `SELECT * FROM reports ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ` +
+      `ORDER BY created_at DESC LIMIT 100`;
+
+    const rows = this.db.prepare(sql).all(...params) as {
+      id: string;
+      run_id: string;
+      project_id: string;
+      created_at: string;
+      health: string | null;
+      json: string;
+      reviewed: number;
+    }[];
+
+    return rows.map((r) => ({
+      id: r.id,
+      runId: r.run_id,
+      projectId: r.project_id,
+      createdAt: r.created_at,
+      health: r.health,
+      report: JSON.parse(r.json) as DreamReport,
+      reviewed: r.reviewed === 1,
+    }));
+  }
+
+  markReviewed(reportId: string): boolean {
+    return this.db.prepare(`UPDATE reports SET reviewed = 1 WHERE id = ?`).run(reportId).changes > 0;
+  }
+
+  /** Dream runs that failed — a parse failure must surface, never drop silently (§8). */
+  failedDreams(limit = 20): Run[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM runs WHERE agent_name = 'dream-reviewer' AND status = 'error'
+         ORDER BY started_at DESC LIMIT ?`,
+      )
+      .all(limit) as RunRow[];
+    return rows.map(toRun);
   }
 
   /** Rolling spend, for the dashboard's 7-day number. */

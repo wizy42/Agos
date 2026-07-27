@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchPortfolio, type PortfolioPayload } from './lib/api.ts';
 import { href, useRoute } from './lib/router.ts';
 import { useRunStream } from './lib/ws.ts';
+import { Inbox } from './screens/Inbox.tsx';
 import { Portfolio } from './screens/Portfolio.tsx';
 import { Project } from './screens/Project.tsx';
 import { RunDetail } from './screens/RunDetail.tsx';
@@ -68,14 +69,35 @@ export function App() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <header className="mb-6 flex items-baseline gap-3 border-b border-line pb-4">
+      <header className="mb-6 flex items-baseline gap-4 border-b border-line pb-4">
         <a href={href.portfolio()} className="text-lg font-semibold tracking-tight text-neutral-100">
           Cockpit
         </a>
-        <span className="text-xs text-neutral-600">Convergence Labs Agent OS</span>
+        <nav className="flex gap-3 text-xs">
+          <a
+            href={href.portfolio()}
+            className={
+              route.name === 'portfolio'
+                ? 'text-neutral-100'
+                : 'text-neutral-600 hover:text-neutral-300'
+            }
+          >
+            Portfolio
+          </a>
+          <a
+            href={href.inbox()}
+            className={
+              route.name === 'inbox' ? 'text-neutral-100' : 'text-neutral-600 hover:text-neutral-300'
+            }
+          >
+            CEO Inbox
+          </a>
+        </nav>
+        <span className="ml-auto text-xs text-neutral-700">Convergence Labs Agent OS</span>
       </header>
 
       {route.name === 'portfolio' && <PortfolioScreen />}
+      {route.name === 'inbox' && <Inbox />}
       {route.name === 'project' && <Project id={route.id} />}
       {route.name === 'run' && <RunDetail id={route.id} />}
     </div>

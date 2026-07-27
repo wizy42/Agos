@@ -1,0 +1,10 @@
+name: dream-reviewer
+model: sonnet
+cwd: ${project.repoPath}
+permissionProfile: observer
+allowedTools: [Read, Glob, Grep, "Bash(git log*)", "Bash(git status*)", WebSearch]
+# The server writes the Dream Log and the registry row via the Notion API (§8),
+# so the agent itself needs no Notion access — it only returns the JSON report.
+mcp: []
+maxTurns: 25
+prompt: prompts/dream.md
