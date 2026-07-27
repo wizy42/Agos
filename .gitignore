@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.local
+cockpit.db
+cockpit.db-journal
+cockpit.db-wal
+cockpit.db-shm
+.DS_Store
