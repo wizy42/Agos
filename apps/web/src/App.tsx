@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchPortfolio, type PortfolioPayload } from './lib/api.ts';
 import { href, useRoute } from './lib/router.ts';
 import { useRunStream } from './lib/ws.ts';
+import { Agents } from './screens/Agents.tsx';
 import { Inbox } from './screens/Inbox.tsx';
 import { Portfolio } from './screens/Portfolio.tsx';
 import { Project } from './screens/Project.tsx';
@@ -92,12 +93,23 @@ export function App() {
           >
             CEO Inbox
           </a>
+          <a
+            href={href.agents()}
+            className={
+              route.name === 'agents'
+                ? 'text-neutral-100'
+                : 'text-neutral-600 hover:text-neutral-300'
+            }
+          >
+            Agents &amp; Skills
+          </a>
         </nav>
         <span className="ml-auto text-xs text-neutral-700">Convergence Labs Agent OS</span>
       </header>
 
       {route.name === 'portfolio' && <PortfolioScreen />}
       {route.name === 'inbox' && <Inbox />}
+      {route.name === 'agents' && <Agents />}
       {route.name === 'project' && <Project id={route.id} />}
       {route.name === 'run' && <RunDetail id={route.id} />}
     </div>

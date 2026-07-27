@@ -1,0 +1,10 @@
+name: skill-librarian
+model: sonnet
+cwd: ${repoRoot}
+permissionProfile: observer
+allowedTools: [Read, Glob, Grep, WebSearch]
+# The server stages drafts into skills-proposed/ (§9). The librarian is
+# read-only and never writes a SKILL.md anywhere itself.
+mcp: []
+maxTurns: 25
+prompt: prompts/librarian.md

@@ -7,7 +7,8 @@ import { buildApp } from './app.ts';
 import { Store } from './db.ts';
 import { DreamPipeline } from './dream/pipeline.ts';
 import { PortfolioService } from './portfolio.ts';
-import { startScheduler } from './scheduler.ts';
+import { startLibrarian, startScheduler } from './scheduler.ts';
+import { Librarian } from './skills/librarian.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 loadEnv({ path: resolve(repoRoot, '.env'), quiet: true });
@@ -34,7 +35,7 @@ if (!notionToken) {
 const notion = new Client({ auth: notionToken });
 const portfolio = new PortfolioService(notion, cockpitConfig);
 const store = new Store(repoRoot);
-const { app, executor } = buildApp({ portfolio, store });
+const { app, executor } = buildApp({ portfolio, store, repoRoot });
 
 const schema = await portfolio.init().catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
@@ -56,6 +57,9 @@ startScheduler({
   portfolio,
   pipeline,
 });
+
+const librarian = new Librarian({ repoRoot, store, executor });
+startLibrarian({ schedule: cockpitConfig.librarian.schedule, portfolio, librarian });
 
 await app.listen({ port: apiPort, host: '127.0.0.1' });
 console.log(`[cockpit] api listening on http://localhost:${apiPort}`);

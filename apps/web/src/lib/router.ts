@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 export type Route =
   | { name: 'portfolio' }
   | { name: 'inbox' }
+  | { name: 'agents' }
   | { name: 'project'; id: string }
   | { name: 'run'; id: string };
 
@@ -10,6 +11,7 @@ function parse(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
   const [head, id] = path.split('/');
   if (head === 'inbox') return { name: 'inbox' };
+  if (head === 'agents') return { name: 'agents' };
   if (head === 'project' && id) return { name: 'project', id };
   if (head === 'run' && id) return { name: 'run', id };
   return { name: 'portfolio' };
@@ -31,6 +33,7 @@ export function useRoute(): Route {
 export const href = {
   portfolio: () => '#/',
   inbox: () => '#/inbox',
+  agents: () => '#/agents',
   project: (id: string) => `#/project/${id.replace(/-/g, '')}`,
   run: (id: string) => `#/run/${id}`,
 };

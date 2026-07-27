@@ -42,7 +42,31 @@ cockpit.config.ts   Notion ids, dream schedule, notionPageId ↔ repoPath map
 - **M0 — Skeleton & sync** ✅ registry created, pilot registered, portfolio renders live Notion data
 - **M1 — Run & watch** ✅ launch observer/builder runs, live stream, cost + replayable detail
 - **M2 — Dreams** ✅ YAML agents, nightly cron, dream contract, Dream Log writes, CEO inbox
-- M3 — Librarian & polish
+- **M3 — Librarian & polish** ✅ skills inventory, weekly librarian, staging with install/reject
+
+Build stops at M3. New ideas go to the brief's backlog, not into the app.
+
+## Skill librarian
+
+```sh
+pnpm librarian          # run the weekly pass now
+```
+
+Weekly at `librarian.schedule` (Monday 03:00). Inputs: every installed skill
+(`~/.claude/skills/*` and each tracked repo's `.claude/skills/*`), the last 7
+days of dream reports, and a best-effort scan of recent session transcripts for
+instructions typed more than once — repetition is the signal that a skill is
+missing.
+
+Output is staged in `skills-proposed/<name>/`: new-skill drafts, rewrites with a
+diff, deprecation candidates, and links to public skills.
+
+**Nothing is ever auto-installed.** A SKILL.md is instructions your agents will
+obey, so an unreviewed one — especially a third-party one — is a prompt-injection
+vector. The librarian is read-only and writes nothing; only the explicit Install
+action in **Agents & Skills** copies a draft into a real skills directory, and it
+refuses any destination outside a known skills root. Public skills are linked,
+never fetched. This is the one security rule that survives "it's local".
 
 ## Dreams
 

@@ -11,8 +11,11 @@ export type ParseResult =
   | { ok: true; report: DreamReport }
   | { ok: false; reason: string };
 
-/** Last fenced ```json block, else the last balanced top-level object. */
-function extractJson(text: string): string | null {
+/**
+ * Last fenced ```json block, else the last balanced top-level object.
+ * Shared with the librarian, which uses the same end-with-one-JSON-block shape.
+ */
+export function extractJsonBlock(text: string): string | null {
   const fences = [...text.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/g)];
   const last = fences.at(-1);
   if (last?.[1]) return last[1].trim();
@@ -73,7 +76,7 @@ function asActions(v: unknown): ProposedAction[] {
 }
 
 export function parseDreamReport(text: string, fallbackProject: string): ParseResult {
-  const json = extractJson(text);
+  const json = extractJsonBlock(text);
   if (!json) {
     return { ok: false, reason: 'The run produced no JSON block.' };
   }

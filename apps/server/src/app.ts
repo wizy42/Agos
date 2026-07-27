@@ -1,10 +1,30 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { PermissionProfile } from '@cockpit/core';
+import { loadAgents, parseAgentDef } from './agents/loader.ts';
 import { Bus } from './bus.ts';
 import type { Store } from './db.ts';
 import type { Portfolio } from './portfolio.ts';
 import { Executor } from './runtime/executor.ts';
 import { specFor } from './runtime/profiles.ts';
+import { inventorySkills } from './skills/inventory.ts';
+import { allowedSkillRoots } from './skills/librarian.ts';
+import { installProposal, listProposals, rejectProposal } from './skills/staging.ts';
+
+/** Agent files live in `agents/<name>.yaml`; the name is validated on write. */
+const AGENT_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+function agentPath(repoRoot: string, name: string): string {
+  if (!AGENT_NAME.test(name)) throw new Error(`Unsafe agent name ${JSON.stringify(name)}.`);
+  return join(repoRoot, 'agents', `${name}.yaml`);
+}
+
+const readAgentYaml = (repoRoot: string, name: string): Promise<string> =>
+  readFile(agentPath(repoRoot, name), 'utf8');
+
+const writeAgentYaml = (repoRoot: string, name: string, yaml: string): Promise<void> =>
+  writeFile(agentPath(repoRoot, name), yaml, 'utf8');
 
 /** The portfolio surface the routes depend on — a seam for testing. */
 export interface PortfolioSource {
@@ -19,8 +39,12 @@ export interface App {
 
 const sameId = (a: string, b: string): boolean => a.replace(/-/g, '') === b.replace(/-/g, '');
 
-export function buildApp(deps: { portfolio: PortfolioSource; store: Store }): App {
-  const { portfolio, store } = deps;
+export function buildApp(deps: {
+  portfolio: PortfolioSource;
+  store: Store;
+  repoRoot: string;
+}): App {
+  const { portfolio, store, repoRoot } = deps;
 
   const app = Fastify({ logger: false });
   const bus = new Bus(app.server);
@@ -222,6 +246,85 @@ export function buildApp(deps: { portfolio: PortfolioSource; store: Store }): Ap
     });
 
     return { run };
+  });
+
+  /* ---------------------------- agents & skills ---------------------------- */
+
+  app.get('/api/agents', async () => {
+    const defs = await loadAgents(repoRoot);
+    const files = await Promise.all(
+      [...defs.values()].map(async (def) => ({
+        def,
+        yaml: await readAgentYaml(repoRoot, def.name),
+      })),
+    );
+    return { agents: files, runs: store.listRuns({ limit: 100 }) };
+  });
+
+  /** Edit an agent YAML in place. Rejected unless it still parses (§10). */
+  app.put<{ Params: { name: string }; Body: { yaml?: string } }>(
+    '/api/agents/:name',
+    async (req, reply) => {
+      const yaml = req.body?.yaml;
+      if (typeof yaml !== 'string') {
+        reply.code(400);
+        return { error: 'yaml_required' };
+      }
+      try {
+        const def = parseAgentDef(yaml, `${req.params.name}.yaml`);
+        if (def.name !== req.params.name) {
+          reply.code(400);
+          return {
+            error: 'name_mismatch',
+            message: `The definition names "${def.name}" but the file is ${req.params.name}.yaml.`,
+          };
+        }
+        await writeAgentYaml(repoRoot, req.params.name, yaml);
+        return { def };
+      } catch (err) {
+        reply.code(400);
+        return { error: 'invalid', message: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  );
+
+  app.get('/api/skills', async () => {
+    const { projects } = await portfolio.load();
+    return {
+      installed: await inventorySkills(projects),
+      proposals: await listProposals(repoRoot),
+    };
+  });
+
+  /**
+   * Install a staged proposal. This is the only path that writes a SKILL.md
+   * into a real skills directory, and it exists solely behind a human click —
+   * the librarian never installs anything (§9).
+   */
+  app.post<{ Params: { name: string } }>('/api/skills/proposals/:name/install', async (req, reply) => {
+    try {
+      const { projects } = await portfolio.load();
+      const result = await installProposal(repoRoot, req.params.name, {
+        allowedRoots: allowedSkillRoots(projects),
+      });
+      return result;
+    } catch (err) {
+      reply.code(400);
+      return { error: 'install_failed', message: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  app.post<{ Params: { name: string } }>('/api/skills/proposals/:name/reject', async (req, reply) => {
+    try {
+      if (!(await rejectProposal(repoRoot, req.params.name))) {
+        reply.code(404);
+        return { error: 'not_found' };
+      }
+      return { ok: true };
+    } catch (err) {
+      reply.code(400);
+      return { error: 'reject_failed', message: err instanceof Error ? err.message : String(err) };
+    }
   });
 
   return { app, bus, executor };

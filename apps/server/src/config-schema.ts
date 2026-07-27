@@ -23,5 +23,9 @@ export interface CockpitConfig {
     /** Max projects dreamed per night, round-robin. */
     maxProjectsPerNight: number;
   };
+  librarian: {
+    /** node-cron expression, local time. Weekly. */
+    schedule: string;
+  };
   projects: TrackedProject[];
 }

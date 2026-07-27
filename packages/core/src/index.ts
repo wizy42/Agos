@@ -102,6 +102,48 @@ export interface ProposedAction {
   prompt: string;
 }
 
+/** One installed skill found on disk. */
+export interface SkillEntry {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  scope: 'user' | 'project';
+  /** Project name for repo-scoped skills, null for user-level ones. */
+  owner: string | null;
+  bytes: number;
+  updatedAt: string;
+}
+
+export type ProposalKind = 'new' | 'rewrite' | 'deprecate';
+
+/** A librarian proposal staged in `skills-proposed/`, awaiting a human. */
+export interface SkillProposal {
+  kind: ProposalKind;
+  name: string;
+  why: string;
+  /** Draft body. Absent for deprecations. */
+  skillMd?: string;
+  /** For rewrites: the file this would replace, and what changes. */
+  targetPath?: string;
+  diff?: string;
+  /** Where `skills-proposed/<name>/SKILL.md` was staged. Absent for deprecations. */
+  stagedPath?: string;
+}
+
+/** A public skill worth a look. Linked only — never fetched, never installed. */
+export interface PublicSkillLink {
+  name: string;
+  url: string;
+  why: string;
+}
+
+export interface LibrarianReport {
+  proposals: SkillProposal[];
+  publicSkills: PublicSkillLink[];
+  summary: string;
+}
+
 /** The single JSON block a dream run must end with. */
 export interface DreamReport {
   project: string;

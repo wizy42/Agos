@@ -2,7 +2,7 @@
   "name": "cockpit",
   "version": "0.1.0",
   "private": true,
-  "description": "Cockpit — Convergence Labs Agent OS control plane",
+  "description": "Cockpit \u2014 Convergence Labs Agent OS control plane",
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -12,7 +12,8 @@
     "dev": "node scripts/dev.mjs",
     "dream": "pnpm --filter @cockpit/server dream",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "librarian": "pnpm --filter @cockpit/server librarian"
   },
   "devDependencies": {
     "dotenv": "^17.2.3",

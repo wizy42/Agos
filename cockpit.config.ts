@@ -21,6 +21,11 @@ const config: CockpitConfig = {
     maxProjectsPerNight: 3,
   },
 
+  librarian: {
+    // Weekly, Monday 03:00 — after the night's dreams have landed.
+    schedule: '0 3 * * 1',
+  },
+
   projects: [
     {
       // "🚀 20 — LaunchPad — Operations Layer for Vibe-Coded Apps"

@@ -7,3 +7,7 @@ cockpit.db-journal
 cockpit.db-wal
 cockpit.db-shm
 .DS_Store
+
+# Librarian output is transient staging, reviewed then installed or rejected.
+skills-proposed/*
+!skills-proposed/.gitkeep
