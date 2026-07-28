@@ -6,9 +6,16 @@ each project, what moved, what's next, what's blocked*.
 
 ## Setup
 
+**First time? Follow [SETUP.md](SETUP.md)** — it walks the whole thing end to
+end, including the two steps that block everything else (the Notion integration
+and LaunchPad's repo path).
+
+The short version:
+
 ```sh
 pnpm install
 cp .env.example .env      # then paste your NOTION_TOKEN
+# edit cockpit.config.ts → set the real repoPath
 pnpm dev                  # → http://localhost:4200
 ```
 
