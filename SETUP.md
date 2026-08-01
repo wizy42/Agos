@@ -37,7 +37,7 @@ warns at boot if it finds one, but it will not override it for you.
 ```sh
 git clone <your-repo-url> cockpit
 cd cockpit
-git checkout claude/cockpit-app-build-ufo8gl
+git checkout main
 pnpm install
 ```
 
