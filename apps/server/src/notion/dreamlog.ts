@@ -13,10 +13,35 @@ import { normalizeNotionId } from './registry.ts';
 
 const DREAM_LOG_TITLE = 'Dream Log';
 
-const text = (content: string) => ({
-  type: 'text' as const,
-  text: { content: content.slice(0, 2000) },
-});
+/**
+ * Notion caps a rich-text *element* at 2000 characters, but allows 100 elements
+ * per block. Truncating at 2000 would silently drop the tail of a long section —
+ * and this is the durable copy of the report, so chunk instead.
+ */
+const MAX_CHARS = 2000;
+const MAX_ELEMENTS = 100;
+
+interface RichText {
+  type: 'text';
+  text: { content: string };
+  annotations?: { bold: true };
+}
+
+function chunk(content: string, bold = false): RichText[] {
+  const annotations = bold ? ({ bold: true } as const) : undefined;
+  if (content.length <= MAX_CHARS) {
+    return [{ type: 'text', text: { content }, annotations }];
+  }
+
+  const parts: RichText[] = [];
+  for (let i = 0; i < content.length && parts.length < MAX_ELEMENTS; i += MAX_CHARS) {
+    parts.push({ type: 'text', text: { content: content.slice(i, i + MAX_CHARS) }, annotations });
+  }
+  return parts;
+}
+
+/** Single-element helper for short, known-bounded strings (titles, next step). */
+const text = (content: string): RichText => chunk(content)[0]!;
 
 /** Renders a Markdown-ish line as a Notion block, keeping bold and bullets. */
 function toBlock(line: string): Record<string, unknown> | null {
@@ -41,17 +66,19 @@ function toBlock(line: string): Record<string, unknown> | null {
   return { object: 'block', type: 'paragraph', paragraph: { rich_text: richText(line) } };
 }
 
-/** Splits `**bold**` runs into Notion rich-text segments. */
-function richText(line: string): Record<string, unknown>[] {
+/** Splits `**bold**` runs into Notion rich-text segments, chunking long ones. */
+function richText(line: string): RichText[] {
   const parts = line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
-  return parts.map((part) => {
+
+  const out: RichText[] = [];
+  for (const part of parts) {
     const bold = part.startsWith('**') && part.endsWith('**');
-    return {
-      type: 'text',
-      text: { content: (bold ? part.slice(2, -2) : part).slice(0, 2000) },
-      annotations: bold ? { bold: true } : undefined,
-    };
-  });
+    for (const segment of chunk(bold ? part.slice(2, -2) : part, bold)) {
+      if (out.length >= MAX_ELEMENTS) return out;
+      out.push(segment);
+    }
+  }
+  return out;
 }
 
 /** Finds an existing "Dream Log" child page under a parent, if there is one. */
