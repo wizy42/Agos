@@ -212,8 +212,9 @@ overages bill at API rates; with it off, runs stop at the ceiling. If the credit
 runs low, drop dreams to 3×/week (`schedule: '0 2 * * 1,3,5'`) before changing
 anything else.
 
-Watch the **7-day spend** figure on the portfolio for the first week. A dream
-costs roughly $0.20–0.80 depending on repo size.
+Watch the **7-day spend** figure on the portfolio for the first week. Measured
+on the real Launchpad repo, one dream costs about **$0.90** (34 turns, ~3 min).
+A small repo is nearer $0.20. Three projects nightly is roughly $50–80/month.
 
 **Adding BotAI, 11bis, or others.** Two steps:
 
