@@ -9,6 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "preflight": "node scripts/doctor.mjs",
     "dev": "node scripts/dev.mjs",
     "dream": "pnpm --filter @cockpit/server dream",
     "test": "pnpm -r test",

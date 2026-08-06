@@ -7,6 +7,12 @@ real repos.
 Budget about 20 minutes. Steps 1–5 are required; 6–8 are the first real use;
 9–10 are optional.
 
+**Shortcut:** after cloning, run `pnpm preflight`. It checks every prerequisite,
+creates `.env`, auto-detects your Launchpad clone and writes the path into
+`cockpit.config.ts`, and verifies the Notion connection — then tells you exactly
+what is left. Re-run it after each fix. The only thing it cannot do for you is
+create the Notion integration (step 3), which is a browser flow in your account.
+
 ---
 
 ## 1. Prerequisites
