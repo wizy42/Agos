@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dream": "tsx src/cli/dream.ts",
-    "test": "tsx --test src/**/*.test.mts",
+    "test": "tsx --test 'src/**/*.test.mts'",
     "typecheck": "tsc --noEmit",
     "librarian": "tsx src/cli/librarian.ts"
   },

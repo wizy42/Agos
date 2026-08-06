@@ -16,6 +16,11 @@ import { config as loadEnv } from 'dotenv';
 const exec = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+// Captured before dotenv runs: it never overrides an exported variable, so a
+// stale `export NOTION_TOKEN=…` silently wins over the .env being edited.
+const shellToken = process.env.NOTION_TOKEN;
+const tokenOrigin = () => (shellToken ? 'your shell environment' : '.env');
+
 const g = (s) => `\x1b[32m${s}\x1b[0m`;
 const r = (s) => `\x1b[31m${s}\x1b[0m`;
 const y = (s) => `\x1b[33m${s}\x1b[0m`;
@@ -136,6 +141,13 @@ if (!tokenLooksReal) {
     'Create an integration at https://www.notion.so/profile/integrations with Read + Update + Insert,\n' +
       '      then connect it to the "Convergence Labs Projects" page via ··· → Connections.',
   );
+} else if (shellToken) {
+  warn(
+    'NOTION_TOKEN',
+    `set (${token.slice(0, 8)}…) from your shell environment`,
+    'An exported NOTION_TOKEN wins over .env — editing the file will do nothing.\n' +
+      '      `unset NOTION_TOKEN` (and remove it from ~/.zshrc) unless that is deliberate.',
+  );
 } else {
   ok('NOTION_TOKEN', `set (${token.slice(0, 8)}…)`);
 }
@@ -202,7 +214,13 @@ if (tokenLooksReal) {
           '      Open "Convergence Labs Projects" → ··· → Connections → add your integration.',
       );
     } else if (res.status === 401) {
-      fail('Notion registry', '401 — the token was rejected', 'Check NOTION_TOKEN in .env.');
+      fail(
+        'Notion registry',
+        '401 — the token was rejected',
+        `The token in use came from ${tokenOrigin()}. Tokens stop working when the\n` +
+          '      integration is deleted or rotated — copy a current one from\n' +
+          '      https://www.notion.so/profile/integrations.',
+      );
     } else {
       fail('Notion registry', `HTTP ${res.status}`, (await res.text()).slice(0, 200));
     }
