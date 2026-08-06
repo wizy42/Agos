@@ -265,10 +265,15 @@ No restart needed for step 1; the portfolio reads Notion live.
 | Symptom | Cause |
 | --- | --- |
 | `NOTION_TOKEN is not set` | No `.env`, or the variable is empty. |
-| `Could not read the Cockpit Registry … 404` | Hub page not shared with the integration (step 3.4). |
+| `Notion rejected NOTION_TOKEN … as invalid` | The token was revoked, rotated, or mistyped. Copy a current one from the integrations page (step 3). |
+| *"NOTION_TOKEN comes from your shell environment"* | An `export NOTION_TOKEN=…` in `~/.zshrc` overrides `.env`, so editing the file changes nothing. `unset NOTION_TOKEN`. |
+| `The Cockpit Registry … is not visible to this integration` | Hub page not shared with the integration (step 3.4). |
+| `Could not read the Cockpit Registry … 404` | Same. |
 | Card says *repo not found on this machine* | `repoPath` still wrong (step 4). |
 | Runs refuse with `repo_not_found` | Same. |
 | `The API did not come up on port 4201` | Server crashed at boot — read the `[server]` lines above it. |
+| `Port 4201 is already in use` | Another `npm run dev` is still running, or use `PORT=4300 npm run dev`. |
+| Repeated `ws proxy error … ECONNREFUSED 127.0.0.1:4201` | A symptom, never the cause: the API is down. `npm run dev` now stops and prints the real error instead. |
 | Dreams never fire | `npm run dev` is not running, or no row has `Dream = ✓`. |
 | Dream says *skipped — nothing changed* | Working as intended. `--force` overrides. |
 | `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` warning | Expected. The `PreToolUse` hook is the real permission gate; see `apps/server/src/runtime/executor.ts`. |

@@ -9,6 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { config as loadEnv } from 'dotenv';
 import { Client } from '@notionhq/client';
 import cockpitConfig from '../../../../cockpit.config.ts';
+import { describeNotionFailure, fatal, tokenSource } from '../boot.ts';
 import type { Bus } from '../bus.ts';
 import { Store } from '../db.ts';
 import { PortfolioService } from '../portfolio.ts';
@@ -16,22 +17,28 @@ import { Executor } from '../runtime/executor.ts';
 import { Librarian } from '../skills/librarian.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+const shellToken = process.env.NOTION_TOKEN;
 loadEnv({ path: resolve(repoRoot, '.env'), quiet: true });
 
 const notionToken = process.env.NOTION_TOKEN;
 if (!notionToken) {
-  console.error('[cockpit] NOTION_TOKEN is not set. See .env.example.');
-  process.exit(1);
+  fatal({
+    message: 'NOTION_TOKEN is not set.',
+    hint: 'cp .env.example .env and add your internal integration token, then: npm run preflight',
+  });
 }
 
 const notion = new Client({ auth: notionToken });
 const portfolio = new PortfolioService(notion, cockpitConfig);
 
 await portfolio.init().catch((err: unknown) => {
-  const message = err instanceof Error ? err.message : String(err);
-  console.error(`[cockpit] Could not read the Cockpit Registry: ${message}`);
-  console.error('          Run `npm run preflight` to check the token and page sharing.');
-  process.exit(1);
+  fatal(
+    describeNotionFailure(err, {
+      token: notionToken,
+      source: tokenSource(shellToken, notionToken),
+      registryDatabaseId: cockpitConfig.notion.registryDatabaseId,
+    }),
+  );
 });
 
 const { projects } = await portfolio.load();
