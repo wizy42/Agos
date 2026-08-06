@@ -47,17 +47,71 @@ else
   fail(
     'Claude Code CLI',
     'not found on PATH',
-    'Install it and run `claude` once to sign in — agents run through that session.',
+    'Install it and run `claude auth login` — agents run through that session.',
   );
 
-if (process.env.ANTHROPIC_API_KEY) {
+/*
+ * Agents bill against whatever the Claude Code binary is authenticated as.
+ * Subscription auth is an OAuth login; an API key silently overrides it and
+ * bills API credits instead. Ask the CLI rather than inferring.
+ */
+if (claude) {
+  const raw = await run('claude', ['auth', 'status']);
+  let status = null;
+  try {
+    status = JSON.parse(raw ?? '');
+  } catch {
+    /* older CLI, or non-JSON output */
+  }
+
+  if (!status) {
+    warn('Claude auth', 'could not read status', 'Run `claude auth status` yourself to check.');
+  } else if (!status.loggedIn) {
+    fail('Claude auth', 'not logged in', 'Run `claude auth login` and sign in to your account.');
+  } else if (status.authMethod === 'oauth_token') {
+    ok('Claude auth', `subscription (oauth, ${status.apiProvider ?? 'firstParty'})`);
+  } else {
+    warn(
+      'Claude auth',
+      `authMethod=${status.authMethod}`,
+      'This is not subscription auth — runs will bill API credits.\n' +
+        '      Run `claude auth login` to switch to your Claude subscription.',
+    );
+  }
+}
+
+/*
+ * The API key can hide in three places, and the two non-obvious ones are why
+ * "I unset it in my shell" is not the same as "it is unset".
+ */
+const keySources = [];
+if (process.env.ANTHROPIC_API_KEY) keySources.push('your shell environment');
+
+const claudeSettings = join(homedir(), '.claude', 'settings.json');
+if (existsSync(claudeSettings)) {
+  try {
+    const settings = JSON.parse(readFileSync(claudeSettings, 'utf8'));
+    if (settings?.env?.ANTHROPIC_API_KEY) keySources.push(`the env block of ${claudeSettings}`);
+    if (settings?.apiKeyHelper) keySources.push(`apiKeyHelper in ${claudeSettings}`);
+  } catch {
+    /* unreadable settings */
+  }
+}
+
+const dotenvPath = join(root, '.env');
+if (existsSync(dotenvPath)) {
+  const body = readFileSync(dotenvPath, 'utf8');
+  if (/^\s*ANTHROPIC_API_KEY\s*=\s*\S/m.test(body)) keySources.push('.env in this repo');
+}
+
+if (keySources.length) {
   warn(
     'ANTHROPIC_API_KEY',
-    'is set',
-    'Unset it. When present, the Agent SDK ignores your subscription and bills API credits instead.',
+    `set in ${keySources.join(', ')}`,
+    'Remove it. When present it overrides your subscription and bills API credits instead.',
   );
 } else {
-  ok('ANTHROPIC_API_KEY', 'unset, as it should be');
+  ok('ANTHROPIC_API_KEY', 'not set anywhere — subscription auth will be used');
 }
 
 /* ---------------------------------- .env ---------------------------------- */

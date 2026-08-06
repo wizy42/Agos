@@ -23,18 +23,33 @@ npm -v      # ships with Node
 claude -v   # Claude Code CLI, logged in
 ```
 
-If `claude` is missing or logged out, install it and run `claude` once to sign
-in. Cockpit uses that OAuth session — it never asks you for an API key.
+### Using your Claude subscription, not an API key
 
-**Check that `ANTHROPIC_API_KEY` is unset:**
+Cockpit never asks for an API key. Agents run through the Claude Code binary,
+which bills against whatever that binary is logged in as. So:
 
 ```sh
-echo "${ANTHROPIC_API_KEY:-(unset — good)}"
+claude auth login     # sign in with your Claude account
+claude auth status    # want: "authMethod": "oauth_token"
 ```
 
-If it prints a key, remove it from your shell profile. When set, the Agent SDK
-silently ignores your subscription and bills API credits instead. The server
-warns at boot if it finds one, but it will not override it for you.
+`oauth_token` means your subscription. Anything else means API credits.
+
+**The catch:** if `ANTHROPIC_API_KEY` is set *anywhere*, it silently overrides
+that login and bills API credits instead — no error, no warning at run time.
+It can hide in three places, and only the first is obvious:
+
+1. your shell profile (`~/.zshrc`, `~/.bashrc`)
+2. the `env` block of `~/.claude/settings.json`
+3. `.env` in this repo
+
+`npm run preflight` checks all three and tells you which one it found. It also
+flags `apiKeyHelper` in your Claude settings, which does the same thing by a
+different route.
+
+Headless runs (dreams, the librarian) draw on the monthly **Agent SDK credit**,
+which is separate from your interactive plan limits — so overnight dreams do not
+eat your daytime quota. Claim it once in your Claude settings if you have not.
 
 ---
 
