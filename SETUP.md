@@ -7,7 +7,7 @@ real repos.
 Budget about 20 minutes. Steps 1–5 are required; 6–8 are the first real use;
 9–10 are optional.
 
-**Shortcut:** after cloning, run `pnpm preflight`. It checks every prerequisite,
+**Shortcut:** after cloning, run `npm run preflight`. It checks every prerequisite,
 creates `.env`, auto-detects your Launchpad clone and writes the path into
 `cockpit.config.ts`, and verifies the Notion connection — then tells you exactly
 what is left. Re-run it after each fix. The only thing it cannot do for you is
@@ -19,7 +19,7 @@ create the Notion integration (step 3), which is a browser flow in your account.
 
 ```sh
 node -v     # must be 22 or newer
-pnpm -v     # 10.x
+npm -v      # ships with Node
 claude -v   # Claude Code CLI, logged in
 ```
 
@@ -44,10 +44,10 @@ warns at boot if it finds one, but it will not override it for you.
 git clone <your-repo-url> cockpit
 cd cockpit
 git checkout main
-pnpm install
+npm install
 ```
 
-`pnpm install` compiles `better-sqlite3`, so it takes a minute the first time.
+`npm install` compiles `better-sqlite3`, so it takes a minute the first time.
 
 ---
 
@@ -112,7 +112,7 @@ fallback for projects you have not listed in the config.
 ## 5. First boot
 
 ```sh
-pnpm dev
+npm run dev
 ```
 
 Open <http://localhost:4200>. You should see a **STRATEGIC BETS** section with a
@@ -146,7 +146,7 @@ a file before a dream proposes one.
 ## 7. First dream
 
 ```sh
-pnpm dream --project LaunchPad --force
+npm run dream -- --project LaunchPad --force
 ```
 
 Takes a minute or two. On success it prints the health, the run id, and a link
@@ -158,7 +158,7 @@ three places:
 1. Under LaunchPad's project page in Notion there is now a **🌙 Dream Log** child
    page with a dated section.
 2. The registry row's `Status`, `Last dream`, and `Next step` are filled in.
-3. `pnpm dev` → **CEO Inbox** shows the report.
+3. `npm run dev` → **CEO Inbox** shows the report.
 
 In the inbox, try each control: **Approve → run** on an action (it launches a
 pre-filled run), **Ask follow-up** (an observer seeded with the report), and
@@ -170,7 +170,7 @@ pre-filled run), **Ask follow-up** (an observer seeded with the report), and
 > tighter output contract.
 
 Once this works, dreams run automatically at **02:00 every night**, as long as
-`pnpm dev` is running. Only projects with `Dream = ✓`, one at a time, max 3 per
+`npm run dev` is running. Only projects with `Dream = ✓`, one at a time, max 3 per
 night. A project whose git and session activity predate its last dream is
 skipped unless you pass `--force`.
 
@@ -179,7 +179,7 @@ skipped unless you pass `--force`.
 ## 8. First librarian pass
 
 ```sh
-pnpm librarian
+npm run librarian
 ```
 
 Proposals land in `skills-proposed/` and appear under **Agents & Skills**. Read
@@ -210,7 +210,7 @@ back to auditing your existing skills — useful, but it will not spot missing o
 
 ## 10. Optional: billing posture, and adding more projects
 
-**Agent SDK credit.** Headless runs (dreams, librarian, `pnpm dream`) draw on the
+**Agent SDK credit.** Headless runs (dreams, librarian, `npm run dream`) draw on the
 monthly Agent SDK credit, separate from your interactive plan limits — so
 overnight dreams do not eat your daytime quota. Claim it once in your Claude
 settings if you have not. Decide the extra-usage toggle deliberately: with it on,
@@ -254,6 +254,6 @@ No restart needed for step 1; the portfolio reads Notion live.
 | Card says *repo not found on this machine* | `repoPath` still wrong (step 4). |
 | Runs refuse with `repo_not_found` | Same. |
 | `The API did not come up on port 4201` | Server crashed at boot — read the `[server]` lines above it. |
-| Dreams never fire | `pnpm dev` is not running, or no row has `Dream = ✓`. |
+| Dreams never fire | `npm run dev` is not running, or no row has `Dream = ✓`. |
 | Dream says *skipped — nothing changed* | Working as intended. `--force` overrides. |
 | `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` warning | Expected. The `PreToolUse` hook is the real permission gate; see `apps/server/src/runtime/executor.ts`. |

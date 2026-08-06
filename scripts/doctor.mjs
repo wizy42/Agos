@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
-  * `pnpm preflight` — checks everything Cockpit needs, fixes what it safely can, and
+  * `npm run preflight` — checks everything Cockpit needs, fixes what it safely can, and
  * names exactly what is left for you.
  *
  * Re-runnable. The only thing it cannot do is create your Notion integration.
@@ -171,10 +171,10 @@ console.log('');
 
 if (failures === 0) {
   console.log(`  ${g('Ready.')} Next:\n`);
-  console.log('    pnpm dev                                # → http://localhost:4200');
-  console.log('    pnpm dream --project LaunchPad --force  # the first real Notion write\n');
+  console.log('    npm run dev                                # → http://localhost:4200');
+  console.log('    npm run dream -- --project LaunchPad --force  # the first real Notion write\n');
 } else {
-  console.log(`  ${r(`${failures} thing(s) left`)} — fix the ✗ lines above, then re-run pnpm preflight.\n`);
+  console.log(`  ${r(`${failures} thing(s) left`)} — fix the ✗ lines above, then re-run npm run preflight.\n`);
 }
 
 process.exit(failures === 0 ? 0 : 1);

@@ -13,10 +13,10 @@ and LaunchPad's repo path).
 The short version:
 
 ```sh
-pnpm install
+npm install
 cp .env.example .env      # then paste your NOTION_TOKEN
 # edit cockpit.config.ts → set the real repoPath
-pnpm dev                  # → http://localhost:4200
+npm run dev                  # → http://localhost:4200
 ```
 
 `NOTION_TOKEN` is an internal integration token from
@@ -56,7 +56,7 @@ Build stops at M3. New ideas go to the brief's backlog, not into the app.
 ## Skill librarian
 
 ```sh
-pnpm librarian          # run the weekly pass now
+npm run librarian          # run the weekly pass now
 ```
 
 Weekly at `librarian.schedule` (Monday 03:00). Inputs: every installed skill
@@ -78,8 +78,8 @@ never fetched. This is the one security rule that survives "it's local".
 ## Dreams
 
 ```sh
-pnpm dream --project LaunchPad --force   # run one now
-pnpm dream                               # the nightly sweep, by hand
+npm run dream -- --project LaunchPad --force   # run one now
+npm run dream                               # the nightly sweep, by hand
 ```
 
 Nightly at `dream.schedule` in `cockpit.config.ts` (02:00 every night), sequential,
@@ -113,4 +113,4 @@ for *every* tool call, including ones the SDK's classifier would auto-approve
 without prompting — `canUseTool` never sees those, so an observer could
 otherwise shell out to any command deemed read-only, `ls` and `cat` included.
 
-`pnpm test` covers the gate directly.
+`npm test` covers the gate directly.

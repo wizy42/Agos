@@ -1,5 +1,5 @@
 /**
- * `pnpm librarian`
+ * `npm run librarian`
  *
  * Runs the weekly skill librarian once, from the terminal. Proposals are staged
  * in `skills-proposed/` for review — nothing is installed (§9).
@@ -26,7 +26,14 @@ if (!notionToken) {
 
 const notion = new Client({ auth: notionToken });
 const portfolio = new PortfolioService(notion, cockpitConfig);
-await portfolio.init();
+
+await portfolio.init().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[cockpit] Could not read the Cockpit Registry: ${message}`);
+  console.error('          Run `npm run preflight` to check the token and page sharing.');
+  process.exit(1);
+});
+
 const { projects } = await portfolio.load();
 
 const store = new Store(repoRoot);

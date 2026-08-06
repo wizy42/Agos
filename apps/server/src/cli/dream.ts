@@ -1,5 +1,5 @@
 /**
- * `pnpm dream --project X [--force]`
+ * `npm run dream -- --project X [--force]`
  *
  * Runs the dream pipeline once from the terminal, against the same code path
  * the scheduler uses. Writes to Notion exactly as a nightly run would.
@@ -38,7 +38,13 @@ const notion = new Client({ auth: notionToken });
 const portfolioService = new PortfolioService(notion, cockpitConfig);
 const store = new Store(repoRoot);
 
-const schema = await portfolioService.init();
+const schema = await portfolioService.init().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[cockpit] Could not read the Cockpit Registry: ${message}`);
+  console.error('          Run `npm run preflight` to check the token and page sharing.');
+  process.exit(1);
+});
+
 const { projects } = await portfolioService.load();
 
 if (values.project && !projects.some((p) => matches(p, values.project!))) {

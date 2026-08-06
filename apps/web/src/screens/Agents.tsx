@@ -244,7 +244,7 @@ export function Agents() {
         {skills.proposals.length === 0 ? (
           <p className="text-sm text-neutral-600">
             Nothing staged. The librarian runs weekly;{' '}
-            <code className="text-neutral-400">pnpm librarian</code> runs it now.
+            <code className="text-neutral-400">npm run librarian</code> runs it now.
           </p>
         ) : (
           <>

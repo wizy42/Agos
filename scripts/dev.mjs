@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm dev` — starts the API server and the Vite dev server together,
+ * `npm run dev` — starts the API server and the Vite dev server together,
  * then prints the one URL that matters.
  */
 import { spawn } from 'node:child_process';
@@ -15,7 +15,7 @@ const uiPort = Number(process.env.PORT ?? 4200);
 const apiPort = uiPort + 1;
 
 // Fail fast here rather than inside `tsx watch`, which keeps the watcher alive
-// after the server exits and would leave `pnpm dev` hanging silently.
+// after the server exits and would leave `npm run dev` hanging silently.
 if (!process.env.NOTION_TOKEN) {
   console.error(
     '\n[cockpit] NOTION_TOKEN is not set.\n' +
@@ -25,11 +25,14 @@ if (!process.env.NOTION_TOKEN) {
   process.exit(1);
 }
 
+// npm ships with Node; `npm.cmd` is the Windows shim.
+const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
 const children = [];
 let shuttingDown = false;
 
 function run(name, cwd) {
-  const child = spawn('pnpm', ['run', 'dev'], {
+  const child = spawn(npmCmd, ['run', 'dev'], {
     cwd: resolve(root, cwd),
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, PORT: String(uiPort), FORCE_COLOR: '1' },

@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.220",
-    "@cockpit/core": "workspace:*",
+    "@cockpit/core": "*",
     "@notionhq/client": "^5.4.0",
     "better-sqlite3": "^13.0.1",
     "dotenv": "^17.2.3",

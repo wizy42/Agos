@@ -4,20 +4,24 @@
   "private": true,
   "description": "Cockpit \u2014 Convergence Labs Agent OS control plane",
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "preflight": "node scripts/doctor.mjs",
     "dev": "node scripts/dev.mjs",
-    "dream": "pnpm --filter @cockpit/server dream",
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck",
-    "librarian": "pnpm --filter @cockpit/server librarian"
+    "dream": "tsx apps/server/src/cli/dream.ts",
+    "librarian": "tsx apps/server/src/cli/librarian.ts",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
     "dotenv": "^17.2.3",
-    "typescript": "^5.9.3"
-  }
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.6"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
