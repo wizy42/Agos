@@ -7,8 +7,8 @@ each project, what moved, what's next, what's blocked*.
 ## Setup
 
 **First time? Follow [SETUP.md](SETUP.md)** — it walks the whole thing end to
-end, including the two steps that block everything else (the Notion integration
-and LaunchPad's repo path).
+end. The one step only you can do is the Notion integration; everything else
+is a command.
 
 The short version:
 
@@ -33,7 +33,7 @@ overrides your Claude Code subscription auth and bills API credits instead.
 apps/server/        Fastify API, Notion sync, read-only git/session ingestors
 apps/web/           Vite + React + Tailwind UI
 packages/core/      shared types: Project, AgentDef, Run, DreamReport
-cockpit.config.ts   Notion ids, dream schedule, notionPageId ↔ repoPath map
+cockpit.config.ts   Notion ids, schedules, per-project overrides (repoUrl / repoPath)
 ```
 
 ## Notion
