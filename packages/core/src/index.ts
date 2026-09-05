@@ -5,7 +5,18 @@
  * SQLite is telemetry (runs, streams, costs). Nothing strategic lives only here.
  */
 
-export const TIERS = ['SHIP NOW', 'BUILD NEXT', 'STRATEGIC BETS'] as const;
+/**
+ * The five tiers the hub page is organised into, in maturity order. A project
+ * page's parent is its tier, so these names track the hub's own sections —
+ * IDEAS and ARCHIVED included, or a row in either reads as untiered.
+ */
+export const TIERS = [
+  'SHIP NOW',
+  'BUILD NEXT',
+  'STRATEGIC BETS',
+  'IDEAS',
+  'ARCHIVED',
+] as const;
 export type Tier = (typeof TIERS)[number];
 
 export const HEALTHS = ['green', 'orange', 'red'] as const;
