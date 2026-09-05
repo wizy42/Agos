@@ -7,6 +7,8 @@ import { interpolate, loadAgents, loadPrompt } from '../agents/loader.ts';
 import type { Store } from '../db.ts';
 import { expandPath } from '../ingest/activity.ts';
 import { appendDream, resolveDreamLog, updateRegistryRow } from '../notion/dreamlog.ts';
+import { readProjectPage } from '../notion/projectPage.ts';
+import { normalizeNotionId } from '../notion/registry.ts';
 import type { RegistrySchema } from '../notion/registry.ts';
 import type { Executor } from '../runtime/executor.ts';
 import { parseDreamReport } from './contract.ts';
@@ -113,6 +115,14 @@ export class DreamPipeline {
     const def = await this.agentDef();
     const previous = store.listReports({ projectId: project.id })[0];
 
+    // The project page is where maturity, MRR, the primary blocker and the
+    // locked decisions live. A dream without it asks the founder questions his
+    // own page already answers.
+    const pageId = project.projectPageUrl ? normalizeNotionId(project.projectPageUrl) : null;
+    const page = pageId
+      ? await readProjectPage(notion, pageId).catch(() => ({ text: null, sections: [] }))
+      : { text: null, sections: [] };
+
     const prompt = await loadPrompt(repoRoot, def, {
       projectName: project.name,
       project: [
@@ -122,6 +132,13 @@ export class DreamPipeline {
         `Branch: ${project.activity?.branch ?? 'unknown'}`,
         `Current registry status: ${project.status ?? 'none set'}`,
         `Notion page: ${project.projectPageUrl ?? 'none'}`,
+        '',
+        page.text
+          ? `--- From the Notion project page${
+              page.sections.length ? ` (${page.sections.join(', ')})` : ''
+            } ---\n${page.text}`
+          : '(The Notion project page could not be read. Judge from the repository alone,' +
+            ' and say so rather than guessing at strategy.)',
       ].join('\n'),
       gitDelta: await gitDelta(project.repoPath, project.lastDream),
       lastDreamReport: previous
