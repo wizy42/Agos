@@ -1,11 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { PermissionProfile } from '@cockpit/core';
+import type { PermissionProfile, Project, Run } from '@cockpit/core';
 import { loadAgents, parseAgentDef } from './agents/loader.ts';
 import { Bus } from './bus.ts';
 import type { Store } from './db.ts';
+import type { DreamOutcome } from './dream/pipeline.ts';
 import type { Portfolio } from './portfolio.ts';
+import type { LibrarianOutcome } from './skills/librarian.ts';
 import { Executor } from './runtime/executor.ts';
 import { specFor } from './runtime/profiles.ts';
 import { inventorySkills } from './skills/inventory.ts';
@@ -31,6 +33,43 @@ export interface PortfolioSource {
   load(): Promise<Portfolio>;
 }
 
+/**
+ * The two scheduled loops, exposed so a human can also start them by hand.
+ *
+ * Late-bound on purpose: both are built from the Executor that `buildApp`
+ * creates, so index.ts can only fill them in once this function has returned.
+ * Absent (the tests, or a server with no Notion) the routes answer 503 instead
+ * of pretending the button worked.
+ */
+export interface Jobs {
+  dream(project: Project, onRun: (run: Run) => void): Promise<DreamOutcome>;
+  librarian(projects: Project[], onRun: (run: Run) => void): Promise<LibrarianOutcome>;
+}
+
+/**
+ * Starts a long job and resolves the moment its run exists, so the request can
+ * hand back a run id in milliseconds while the work goes on behind it. A job
+ * that never launches a run — a dream skipped because nothing changed — settles
+ * instead, and that outcome comes back so the caller can say why.
+ */
+function startJob<T>(
+  begin: (onRun: (run: Run) => void) => Promise<T>,
+): Promise<{ run: Run } | { outcome: T } | { failure: unknown }> {
+  let announce: (run: Run) => void = () => {};
+  const launched = new Promise<Run>((resolve) => {
+    announce = resolve;
+  });
+
+  // Both arms are absorbed here, so a rejection after the race has already been
+  // won by `launched` cannot surface as an unhandled rejection and kill dev.
+  const settled = begin(announce).then(
+    (outcome) => ({ outcome }) as const,
+    (failure: unknown) => ({ failure }) as const,
+  );
+
+  return Promise.race([launched.then((run) => ({ run }) as const), settled]);
+}
+
 export interface App {
   app: FastifyInstance;
   bus: Bus;
@@ -43,8 +82,9 @@ export function buildApp(deps: {
   portfolio: PortfolioSource;
   store: Store;
   repoRoot: string;
+  jobs?: () => Jobs | null;
 }): App {
-  const { portfolio, store, repoRoot } = deps;
+  const { portfolio, store, repoRoot, jobs } = deps;
 
   const app = Fastify({ logger: false });
   const bus = new Bus(app.server);
@@ -150,6 +190,71 @@ export function buildApp(deps: {
       return { error: 'not_running' };
     }
     return { ok: true };
+  });
+
+  /* ------------------------- run the loops by hand ------------------------- */
+
+  /**
+   * Dream one project now instead of waiting for 02:00. Always forced: clicking
+   * the button *is* the intent that the "nothing changed" heuristic exists to
+   * guess at, so second-guessing it here would just be confusing.
+   */
+  app.post<{ Params: { id: string } }>('/api/projects/:id/dream', async (req, reply) => {
+    const runner = jobs?.();
+    if (!runner) {
+      reply.code(503);
+      return { error: 'jobs_unavailable', message: 'This server was started without the dream loop.' };
+    }
+
+    const { projects } = await portfolio.load();
+    const project = projects.find((p) => sameId(p.id, req.params.id));
+    if (!project) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+
+    const started = await startJob((onRun) => runner.dream(project, onRun));
+
+    if ('run' in started) return { run: started.run };
+    if ('failure' in started) {
+      reply.code(500);
+      const err = started.failure;
+      return { error: 'dream_failed', message: err instanceof Error ? err.message : String(err) };
+    }
+
+    // Settled without ever launching: skipped, or refused before the agent ran.
+    reply.code(409);
+    const outcome = started.outcome;
+    return {
+      error: 'not_started',
+      message: 'reason' in outcome ? outcome.reason : 'The dream did not start.',
+    };
+  });
+
+  /** Run the weekly librarian pass now. Output is still only ever staged (§9). */
+  app.post('/api/librarian', async (_req, reply) => {
+    const runner = jobs?.();
+    if (!runner) {
+      reply.code(503);
+      return { error: 'jobs_unavailable', message: 'This server was started without the librarian.' };
+    }
+
+    const { projects } = await portfolio.load();
+    const started = await startJob((onRun) => runner.librarian(projects, onRun));
+
+    if ('run' in started) return { run: started.run };
+    if ('failure' in started) {
+      reply.code(500);
+      const err = started.failure;
+      return { error: 'librarian_failed', message: err instanceof Error ? err.message : String(err) };
+    }
+
+    reply.code(409);
+    const outcome = started.outcome;
+    return {
+      error: 'not_started',
+      message: 'reason' in outcome ? outcome.reason : 'The librarian did not start.',
+    };
   });
 
   /**

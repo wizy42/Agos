@@ -1,6 +1,7 @@
 import type { Health, Project } from '@cockpit/core';
 import { ago } from '../lib/format.ts';
 import { href } from '../lib/router.ts';
+import { JobButton } from './JobButton.tsx';
 
 const DOT: Record<Health, string> = {
   green: 'bg-emerald-400',
@@ -80,7 +81,18 @@ export function ProjectCard({ project }: { project: Project }) {
         />
       </div>
 
-      <div className="mt-3 flex items-center gap-3 border-t border-line pt-2.5 text-[11px]">
+      {/* Wraps rather than crushes: the path gets its own line under the actions. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-2.5 text-[11px]">
+        <JobButton
+          url={`/api/projects/${project.id.replace(/-/g, '')}/dream`}
+          label="Dream now"
+          disabled={!a?.repoFound}
+          title={
+            a?.repoFound
+              ? 'Review this project now instead of waiting for tonight'
+              : 'Needs a repo path that exists on this machine'
+          }
+        />
         {project.projectPageUrl && (
           <a
             href={project.projectPageUrl}
@@ -100,7 +112,7 @@ export function ProjectCard({ project }: { project: Project }) {
           registry row ↗
         </a>
         {project.repoPath && (
-          <span className="ml-auto truncate font-mono text-neutral-600" title={project.repoPath}>
+          <span className="w-full truncate font-mono text-neutral-600" title={project.repoPath}>
             {project.repoPath}
           </span>
         )}
