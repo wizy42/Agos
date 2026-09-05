@@ -208,3 +208,25 @@ export async function fetchRegistryRows(
 
   return rows;
 }
+
+/**
+ * Records where a project's clone lives on this machine. Written by
+ * `npm run link-repos` once a clone is matched by remote — the registry is the
+ * source of truth for paths, so a fresh machine only needs this run once.
+ */
+export async function writeRepoPath(
+  notion: Client,
+  schema: RegistrySchema,
+  rowId: string,
+  repoPath: string,
+): Promise<void> {
+  if (!schema.props.repoPath) {
+    throw new Error('The registry has no Repo path property to write to.');
+  }
+  await notion.pages.update({
+    page_id: rowId,
+    properties: {
+      [schema.props.repoPath]: { rich_text: [{ type: 'text', text: { content: repoPath } }] },
+    } as never,
+  });
+}

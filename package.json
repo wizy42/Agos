@@ -9,6 +9,7 @@
   },
   "scripts": {
     "preflight": "node scripts/doctor.mjs",
+    "link-repos": "tsx apps/server/src/cli/link-repos.ts",
     "dev": "node scripts/dev.mjs",
     "dream": "tsx apps/server/src/cli/dream.ts",
     "librarian": "tsx apps/server/src/cli/librarian.ts",
