@@ -160,6 +160,8 @@ a file before a dream proposes one.
 
 ## 7. First dream
 
+Click **Dream now** on the LaunchPad card, or run it from a terminal:
+
 ```sh
 npm run dream -- --project LaunchPad --force
 ```
@@ -192,6 +194,8 @@ skipped unless you pass `--force`.
 ---
 
 ## 8. First librarian pass
+
+Click **Run librarian now** under **Agents & Skills**, or run it from a terminal:
 
 ```sh
 npm run librarian

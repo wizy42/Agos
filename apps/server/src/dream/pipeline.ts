@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Client } from '@notionhq/client';
-import type { AgentDef, Project } from '@cockpit/core';
+import type { AgentDef, Project, Run } from '@cockpit/core';
 import { interpolate, loadAgents, loadPrompt } from '../agents/loader.ts';
 import type { Store } from '../db.ts';
 import { expandPath } from '../ingest/activity.ts';
@@ -86,7 +86,10 @@ export class DreamPipeline {
    * One project, end to end: run the agent, parse its contract, write the Dream
    * Log and registry row, store the report for the inbox.
    */
-  async dream(project: Project, opts: { force?: boolean } = {}): Promise<DreamOutcome> {
+  async dream(
+    project: Project,
+    opts: { force?: boolean; onRun?: (run: Run) => void } = {},
+  ): Promise<DreamOutcome> {
     const { store, executor, notion, schema, repoRoot } = this.deps;
 
     if (!project.repoPath) {
@@ -135,6 +138,10 @@ export class DreamPipeline {
       model: def.model,
       maxTurns: def.maxTurns,
     });
+
+    // Lets a caller answer "started" before the run finishes — the UI needs the
+    // id now so it can follow the stream, not in three minutes.
+    opts.onRun?.(run);
 
     const finished = await executor.whenFinished(run.id);
 

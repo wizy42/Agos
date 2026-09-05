@@ -170,3 +170,17 @@ test('proposals are capped at five', () => {
   const res = parseLibrarianReport(text);
   assert.equal(res.ok && res.report.proposals.length, 5);
 });
+
+test('an object that is not a librarian report fails instead of staging nothing', () => {
+  // A trailing schema example can parse and end last; treating it as an empty
+  // report would mark the run done and quietly stage nothing (§8).
+  const parsed = parseLibrarianReport('```json\n{"where_we_are": "x", "health": "green"}\n```');
+  assert.equal(parsed.ok, false);
+  assert.match(parsed.ok === false ? parsed.reason : '', /not a librarian report/);
+});
+
+test('a report proposing nothing is still a valid report', () => {
+  const parsed = parseLibrarianReport('```json\n{"summary": "All good.", "proposals": []}\n```');
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.ok && parsed.report.proposals.length, 0);
+});

@@ -3,6 +3,7 @@ import type {
   Project,
   ProposalKind,
   PublicSkillLink,
+  Run,
   SkillEntry,
   SkillProposal,
 } from '@cockpit/core';
@@ -86,6 +87,19 @@ export function parseLibrarianReport(text: string): LibrarianParse {
   }
 
   const obj = parsed as Record<string, unknown>;
+
+  // Every field here is optional on its own — a pass that proposes nothing is a
+  // real outcome. But an object carrying none of them is not this contract at
+  // all; it is some other object that happened to parse. Saying so is the whole
+  // point of §8: a wrong block must fail loudly, not stage nothing and claim
+  // success.
+  if (!('summary' in obj) && !('proposals' in obj) && !('publicSkills' in obj)) {
+    return {
+      ok: false,
+      reason: 'The JSON block was not a librarian report — no summary, proposals or publicSkills.',
+    };
+  }
+
   return {
     ok: true,
     report: {
@@ -131,7 +145,10 @@ export class Librarian {
    * Weekly pass: inventory, friction, recent dreams → proposals staged in
    * `skills-proposed/`. Nothing is installed; that needs a human (§9).
    */
-  async run(projects: Project[]): Promise<LibrarianOutcome> {
+  async run(
+    projects: Project[],
+    opts: { onRun?: (run: Run) => void } = {},
+  ): Promise<LibrarianOutcome> {
     const { repoRoot, store, executor } = this.deps;
 
     const agents = await loadAgents(repoRoot);
@@ -175,6 +192,9 @@ export class Librarian {
       model: def.model,
       maxTurns: def.maxTurns,
     });
+
+    // Same reason as the dream pipeline: the caller needs the run id now.
+    opts.onRun?.(run);
 
     const finished = await executor.whenFinished(run.id);
     if (finished.status !== 'success') {

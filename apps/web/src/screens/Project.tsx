@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PermissionProfile, Project as ProjectT, Run } from '@cockpit/core';
+import { JobButton } from '../components/JobButton.tsx';
 import { RunList } from '../components/RunList.tsx';
 import { ago } from '../lib/format.ts';
 import { href, navigate } from '../lib/router.ts';
@@ -135,16 +136,28 @@ export function Project({ id }: { id: string }) {
         <div className="mt-2 flex items-baseline gap-3">
           <h1 className="text-lg font-semibold text-neutral-100">{project.name}</h1>
           <span className="text-xs text-neutral-600">{project.tier ?? 'untiered'}</span>
-          {project.projectPageUrl && (
-            <a
-              href={project.projectPageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-auto text-xs text-neutral-400 hover:text-neutral-100"
-            >
-              Notion page ↗
-            </a>
-          )}
+          <span className="ml-auto flex items-baseline gap-3">
+            <JobButton
+              url={`/api/projects/${project.id.replace(/-/g, '')}/dream`}
+              label="Dream now"
+              disabled={!a?.repoFound}
+              title={
+                a?.repoFound
+                  ? 'Review this project now instead of waiting for tonight'
+                  : 'Needs a repo path that exists on this machine'
+              }
+            />
+            {project.projectPageUrl && (
+              <a
+                href={project.projectPageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-neutral-400 hover:text-neutral-100"
+              >
+                Notion page ↗
+              </a>
+            )}
+          </span>
         </div>
         <p className="mt-1 font-mono text-[11px] text-neutral-600">
           {project.repoPath ?? 'no repo path'}

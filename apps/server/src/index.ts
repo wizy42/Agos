@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { config as loadEnv } from 'dotenv';
 import { Client } from '@notionhq/client';
 import cockpitConfig from '../../../cockpit.config.ts';
-import { buildApp } from './app.ts';
+import { buildApp, type Jobs } from './app.ts';
 import {
   describeNotionFailure,
   describeStartupFailure,
@@ -82,7 +82,11 @@ if (schema.missing.length) {
 
 try {
   const store = new Store(repoRoot);
-  const { app, executor } = buildApp({ portfolio, store, repoRoot });
+
+  // Both loops need the Executor that buildApp creates, so the routes reach
+  // them through this holder, filled in a few lines below.
+  let jobs: Jobs | null = null;
+  const { app, executor } = buildApp({ portfolio, store, repoRoot, jobs: () => jobs });
 
   const pipeline = new DreamPipeline({ repoRoot, store, executor, notion, schema });
   startScheduler({
@@ -94,6 +98,11 @@ try {
 
   const librarian = new Librarian({ repoRoot, store, executor });
   startLibrarian({ schedule: cockpitConfig.librarian.schedule, portfolio, librarian });
+
+  jobs = {
+    dream: (project, onRun) => pipeline.dream(project, { force: true, onRun }),
+    librarian: (projects, onRun) => librarian.run(projects, { onRun }),
+  };
 
   await app.listen({ port: apiPort, host: '127.0.0.1' });
   console.log(`[cockpit] api listening on http://localhost:${apiPort}`);

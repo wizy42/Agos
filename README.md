@@ -55,6 +55,9 @@ Build stops at M3. New ideas go to the brief's backlog, not into the app.
 
 ## Skill librarian
 
+**Run librarian now** in **Agents & Skills** starts a pass and drops you on its
+live stream. From a terminal:
+
 ```sh
 npm run librarian          # run the weekly pass now
 ```
@@ -76,6 +79,10 @@ refuses any destination outside a known skills root. Public skills are linked,
 never fetched. This is the one security rule that survives "it's local".
 
 ## Dreams
+
+**Dream now** on any project card — or in its header — reviews that project
+immediately and follows the run. It is always forced: clicking the button is
+the intent the "nothing changed" check exists to guess at. From a terminal:
 
 ```sh
 npm run dream -- --project LaunchPad --force   # run one now

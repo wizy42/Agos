@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AgentDef, Run, SkillEntry, SkillProposal } from '@cockpit/core';
+import { JobButton } from '../components/JobButton.tsx';
 import { RunList } from '../components/RunList.tsx';
 import { ago } from '../lib/format.ts';
 
@@ -13,12 +14,23 @@ interface SkillsPayload {
   proposals: (SkillProposal & { stagedAt: string })[];
 }
 
-function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+function Section({
+  title,
+  count,
+  action,
+  children,
+}: {
+  title: string;
+  count?: number;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section>
       <h2 className="mb-3 flex items-baseline gap-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
         {title}
         {count !== undefined && <span className="font-normal text-neutral-700">{count}</span>}
+        {action && <span className="ml-auto">{action}</span>}
       </h2>
       {children}
     </section>
@@ -240,11 +252,21 @@ export function Agents() {
         )}
       </Section>
 
-      <Section title="Proposals" count={skills.proposals.length}>
+      <Section
+        title="Proposals"
+        count={skills.proposals.length}
+        action={
+          <JobButton
+            url="/api/librarian"
+            label="Run librarian now"
+            running="starting…"
+            title="Scan skills and stage proposals now instead of waiting for Monday"
+          />
+        }
+      >
         {skills.proposals.length === 0 ? (
           <p className="text-sm text-neutral-600">
-            Nothing staged. The librarian runs weekly;{' '}
-            <code className="text-neutral-400">npm run librarian</code> runs it now.
+            Nothing staged. The librarian runs weekly, Mondays at 03:00.
           </p>
         ) : (
           <>

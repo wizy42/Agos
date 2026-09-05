@@ -40,6 +40,76 @@ test('handles braces inside strings when scanning unfenced json', () => {
   assert.equal(res.ok && res.report.where_we_are, tricky.where_we_are);
 });
 
+test('a fenced example inside a string does not truncate the block', () => {
+  // The failure that motivated this: a librarian rewrite embedded a SKILL.md
+  // draft whose body showed its own ```json block, and non-greedy fence
+  // matching ended the report there — mid-string, 8k characters early.
+  const quoting = {
+    ...valid,
+    where_we_are: 'The hook doc shows:\n```json\n{"session_id": "abc"}\n```\nand carries on.',
+  };
+  const text = `Review:\n\`\`\`json\n${JSON.stringify(quoting)}\n\`\`\``;
+  const res = parseDreamReport(text, 'fallback');
+  assert.equal(res.ok, true);
+  assert.equal(res.ok && res.report.where_we_are, quoting.where_we_are);
+});
+
+test('several fences inside one report all survive', () => {
+  const many = {
+    ...valid,
+    risks: ['```sh\nnpm run dev\n```', '```json\n{"a": 1}\n```'],
+    questions_for_ceo: ['Keep ```ts blocks``` in prompts?'],
+  };
+  const res = parseDreamReport(`\`\`\`json\n${JSON.stringify(many)}\n\`\`\``, 'fallback');
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.ok && res.report.risks, many.risks);
+});
+
+test('a lone quote in the prose does not swallow the report', () => {
+  // An unpaired `"` before the block used to invert the scanner's string state
+  // for everything after it, so the report was skipped and some small nested
+  // object was returned instead — a silent wrong answer, the worst outcome.
+  const text = `Checked the "hooks section.\n\n\`\`\`json\n${JSON.stringify(valid)}\n\`\`\``;
+  const res = parseDreamReport(text, 'fallback');
+  assert.equal(res.ok, true);
+  assert.equal(res.ok && res.report.where_we_are, valid.where_we_are);
+});
+
+test('a windows path in the prose does not swallow the report', () => {
+  // Even quote count, but the backslash before the closing quote escapes it.
+  const text = `The skill lives at "C:\\skills\\" on Windows.\n\`\`\`json\n${JSON.stringify(valid)}\n\`\`\``;
+  const res = parseDreamReport(text, 'fallback');
+  assert.equal(res.ok, true);
+  assert.equal(res.ok && res.report.where_we_are, valid.where_we_are);
+});
+
+test('an unclosed brace in the prose does not truncate the block', () => {
+  // Depth never returns to zero after this, so a single forward scan finds
+  // nothing; the rescan from the fence opener is what recovers the report.
+  const text = `- Set {sessionId in the hook\n\n\`\`\`json\n${JSON.stringify(valid)}\n\`\`\``;
+  const res = parseDreamReport(text, 'fallback');
+  assert.equal(res.ok, true);
+  assert.equal(res.ok && res.report.where_we_are, valid.where_we_are);
+});
+
+test('an inner fence does not let a nested object outrank the report', () => {
+  const nested = {
+    ...valid,
+    risks: ['See ```json\n{"name": "example", "url": "https://x", "why": "decoy"}\n```'],
+  };
+  const text = `Notes "unbalanced\n\`\`\`json\n${JSON.stringify(nested)}\n\`\`\``;
+  const res = parseDreamReport(text, 'fallback');
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.ok && res.report.risks, nested.risks);
+});
+
+test('trailing prose with braces does not win over the real block', () => {
+  const text = `\`\`\`json\n${JSON.stringify(valid)}\n\`\`\`\n\nNote: set {retries} to 3.`;
+  const res = parseDreamReport(text, 'fallback');
+  assert.equal(res.ok, true);
+  assert.equal(res.ok && res.report.where_we_are, valid.where_we_are);
+});
+
 test('a missing json block is a failure, not a silent drop', () => {
   const res = parseDreamReport('I could not complete the review.', 'fallback');
   assert.equal(res.ok, false);

@@ -210,8 +210,8 @@ export function Inbox() {
     <div className="space-y-6">
       {empty && (
         <p className="text-sm text-neutral-500">
-          Nothing to review. Dreams run nightly; <code className="text-neutral-400">npm run dream -- --project X
-          --force</code> produces one now.
+          Nothing to review. Dreams run nightly — or hit <span className="text-neutral-400">Dream
+          now</span> on any project to produce one immediately.
         </p>
       )}
 
