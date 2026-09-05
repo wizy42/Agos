@@ -11,38 +11,54 @@ export type ParseResult =
   | { ok: true; report: DreamReport }
   | { ok: false; reason: string };
 
-/** A possible payload, with the span it covers so the outermost one can win. */
-interface Candidate {
-  end: number;
-  text: string;
-}
-
-/** Every ```json fenced block, in document order. */
-function fencedBlocks(text: string): Candidate[] {
-  return [...text.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/g)].flatMap((m) => {
-    const body = m[1]?.trim();
-    return body ? [{ end: m.index + m[0].length, text: body }] : [];
-  });
+/** A line that opens or closes a fence: a run of three or more backticks or tildes. */
+interface FenceLine {
+  line: number;
+  char: string;
+  info: string;
 }
 
 /**
- * Every complete top-level `{…}` found scanning forward from `from`.
+ * Every fence line in the message, each with the index of the bare fence line
+ * of the same kind that closes it, if any. Only *lines* count — a fence quoted
+ * inside a JSON string sits mid-line, its newline being the two characters
+ * `\n` — which is what keeps such a fence from opening or closing anything.
+ */
+function fenceLines(lines: string[]): { fences: FenceLine[]; closerOf: (number | undefined)[] } {
+  const fences: FenceLine[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(lines[i]!);
+    if (m) fences.push({ line: i, char: m[1]![0]!, info: m[2]!.trim().toLowerCase() });
+  }
+
+  const closerOf: (number | undefined)[] = new Array<number | undefined>(fences.length);
+  const nextBare: Record<string, number | undefined> = {};
+  for (let i = fences.length - 1; i >= 0; i--) {
+    const f = fences[i]!;
+    closerOf[i] = nextBare[f.char];
+    if (f.info === '') nextBare[f.char] = i;
+  }
+  return { fences, closerOf };
+}
+
+/**
+ * Every complete top-level `{…}` found scanning forward from the start.
  *
  * Two details keep the agent's prose from corrupting the scan. Escapes and
- * strings are tracked so a brace — or a fence — inside a JSON string cannot end
- * an object. But quotes only count *inside* an object: at depth zero a `"` is
- * prose, and treating it as the start of a string is how a lone inch mark, a
- * Windows path, or an unbalanced quotation ends up inverting the string state
- * for everything after it and swallowing the whole report.
+ * strings are tracked so a brace inside a JSON string cannot end an object. But
+ * quotes only count *inside* an object: at depth zero a `"` is prose, and
+ * treating it as the start of a string is how a lone inch mark, a Windows path,
+ * or an unbalanced quotation ends up inverting the string state for everything
+ * after it and swallowing the whole report.
  */
-function balancedObjects(text: string, from: number): Candidate[] {
-  const found: Candidate[] = [];
+function balancedObjects(text: string): string[] {
+  const found: string[] = [];
   let depth = 0;
   let start = -1;
   let inString = false;
   let escaped = false;
 
-  for (let i = from; i < text.length; i++) {
+  for (let i = 0; i < text.length; i++) {
     const ch = text[i]!;
 
     if (inString) {
@@ -60,24 +76,12 @@ function balancedObjects(text: string, from: number): Candidate[] {
     } else if (ch === '}') {
       if (depth > 0) {
         depth--;
-        if (depth === 0 && start !== -1) found.push({ end: i + 1, text: text.slice(start, i + 1) });
+        if (depth === 0 && start !== -1) found.push(text.slice(start, i + 1));
       }
     }
   }
 
   return found;
-}
-
-/**
- * Just past each fence opener, latest first and capped.
- *
- * A single scan of the whole message is not enough: one unclosed `{` in the
- * prose — "set {sessionId in the hook" — leaves the depth counter stuck above
- * zero, so no later object ever completes. Restarting from a fence sidesteps
- * whatever came before it.
- */
-function fenceStarts(text: string): number[] {
-  return [...text.matchAll(/```[^\n`]*\n/g)].map((m) => m.index + m[0].length).slice(-16);
 }
 
 function parsesToObject(candidate: string): boolean {
@@ -90,38 +94,62 @@ function parsesToObject(candidate: string): boolean {
 }
 
 /**
- * The JSON payload a run ends with — the latest candidate that actually parses.
- * Shared with the librarian, which uses the same end-with-one-JSON-block shape.
+ * The JSON payload a run ends with. Shared with the librarian, which uses the
+ * same end-with-one-JSON-block shape.
  *
- * Matching the fence with a regex is not enough on its own. Agents routinely
- * put a fence *inside* a JSON string — a librarian staging a SKILL.md draft
- * that shows an example block, a dream quoting code in an action prompt — and a
- * non-greedy ```…``` match ends the block at that inner fence, mid-string. The
- * whole run then fails on an "Unterminated string" that has nothing to do with
- * what the agent wrote. The balanced scan does not have that problem: it tracks
- * quotes, so a fence inside a string is just three characters.
+ * The contract is "end with one ```json block", so the report is the *last*
+ * such block and nothing else: the last line opening a json-tagged fence, or a
+ * later block wrapped in bare fences. Its payload is the first complete object
+ * in that block, found by a scan that tracks strings so a fence or brace quoted
+ * inside the report cannot end it early. When no complete object is there (the
+ * run was cut off, a string was never closed) the raw block is returned so the
+ * caller reports the real parse error.
  *
- * Candidates are ordered by where they *end* and tried last-first. Ending last
- * is what picks the real report over an example shown before it, and — unlike
- * ordering by where a candidate starts — it also prefers an enclosing object to
- * any smaller one a rescan happens to find inside its strings. Requiring a
- * candidate to parse is what lets trailing prose containing braces be skipped.
+ * What this deliberately does *not* do is look anywhere else once that block
+ * exists. Falling back to an earlier block when the last one is malformed would
+ * hand back the example the agent showed before its real report; preferring a
+ * later bare object would hand back a schema reminder or an aside in the
+ * trailing prose. Either is a silent wrong answer, which §8 forbids — a loud
+ * failure on the block the agent actually meant is the only safe result.
+ *
+ * A json-tagged opener counts even with no closer — that is what a cut-off
+ * report looks like — and even when a stray fence earlier in the prose left
+ * Markdown's pairing out of step. A bare-fenced block only counts when it is
+ * properly closed, since an unpaired bare fence is far more often a closer than
+ * an opener. Without either, the last fenced block of any kind is taken, and
+ * without any fence the whole text is scanned for the last object that parses.
  */
 export function extractJsonBlock(text: string): string | null {
-  const candidates = [
-    ...balancedObjects(text, 0),
-    ...fenceStarts(text).flatMap((from) => balancedObjects(text, from)),
-    ...fencedBlocks(text),
-  ].sort((a, b) => a.end - b.end);
+  const lines = text.split(/\r?\n/);
+  const { fences, closerOf } = fenceLines(lines);
+  const body = (i: number): string => {
+    const closer = closerOf[i];
+    return lines.slice(fences[i]!.line + 1, closer === undefined ? undefined : fences[closer]!.line).join('\n').trim();
+  };
+  const payload = (block: string): string => balancedObjects(block)[0] ?? block;
 
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    const candidate = candidates[i]!.text;
-    if (parsesToObject(candidate)) return candidate;
+  // Markdown pairing: which fence lines open a block, and whether it is closed.
+  const paired = new Map<number, boolean>();
+  for (let i = 0; i < fences.length; ) {
+    const closer = closerOf[i];
+    paired.set(i, closer !== undefined);
+    i = closer === undefined ? fences.length : closer + 1;
   }
 
-  // Nothing parsed. Hand back the last candidate anyway so the caller can say
-  // *why* the run failed — a bad reason still beats a silent drop (§8).
-  return candidates.at(-1)?.text ?? null;
+  const isReport = (i: number): boolean =>
+    fences[i]!.info.startsWith('json') || (fences[i]!.info === '' && paired.get(i) === true);
+  for (let i = fences.length - 1; i >= 0; i--) {
+    if (!isReport(i)) continue;
+    const block = body(i);
+    if (block) return payload(block);
+  }
+
+  let last = '';
+  for (const i of paired.keys()) last = body(i) || last;
+  if (last) return payload(last);
+
+  const bare = balancedObjects(text);
+  return bare.findLast(parsesToObject) ?? bare.at(-1) ?? null;
 }
 
 const asStringArray = (v: unknown): string[] =>

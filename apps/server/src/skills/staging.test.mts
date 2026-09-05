@@ -184,3 +184,16 @@ test('a report proposing nothing is still a valid report', () => {
   assert.equal(parsed.ok, true);
   assert.equal(parsed.ok && parsed.report.proposals.length, 0);
 });
+
+test('a malformed report does not silently become the example shown before it', () => {
+  // The librarian marking a run done and staging nothing, because it parsed the
+  // example instead of the real report, is the silent drop §8 forbids.
+  const F = '```';
+  const parsed = parseLibrarianReport(
+    `${F}json\n{"summary":"EXAMPLE","proposals":[]}\n${F}\n` +
+      `Here is my report:\n${F}json\n{"summary":"REAL","proposals":[}\n${F}`,
+  );
+
+  assert.equal(parsed.ok, false, 'should fail loudly rather than stage the example');
+  assert.match(parsed.ok === false ? parsed.reason : '', /did not parse/);
+});

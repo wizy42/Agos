@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseDreamReport, reportToMarkdown } from './contract.ts';
+import { extractJsonBlock, parseDreamReport, reportToMarkdown } from './contract.ts';
 
 const valid = {
   project: 'LaunchPad',
@@ -170,4 +170,95 @@ test('empty sections render as (none) rather than vanishing', () => {
   assert.ok(res.ok);
   const md = reportToMarkdown(res.report, new Date('2026-07-27T02:00:00Z'));
   assert.equal(md.match(/\(none\)/g)?.length, 4);
+});
+
+/* ------------------- block selection: never a silent swap ------------------ */
+
+const F = '```';
+
+/** A report whose own strings contain fences, as a librarian draft really does. */
+const realBlock = JSON.stringify({
+  summary: 'REAL',
+  proposals: [
+    { kind: 'new', name: 'x', why: 'w', skillMd: `# x\n\n${F}json\n{"a":1}\n${F}\n` },
+  ],
+});
+
+test('a malformed final block fails loudly rather than yielding an earlier example', () => {
+  // The worst failure this parser can have: return the example the agent showed
+  // before its real report, mark the run done, and stage nothing (§8).
+  const text =
+    `${F}json\n{"summary":"EXAMPLE","proposals":[]}\n${F}\n` +
+    `Real:\n${F}json\n{"summary":"REAL","proposals":[}\n${F}`;
+
+  const block = extractJsonBlock(text);
+  assert.ok(block, 'should return the malformed block, not null');
+  assert.match(block, /REAL/);
+  assert.doesNotMatch(block, /EXAMPLE/);
+});
+
+test('a truncated final block fails loudly rather than yielding an earlier example', () => {
+  const text =
+    `${F}json\n{"summary":"EXAMPLE","proposals":[]}\n${F}\n` +
+    `Real:\n${F}json\n{"summary":"REAL","proposals":[{"kind":"new",`;
+
+  const block = extractJsonBlock(text);
+  assert.ok(block);
+  assert.doesNotMatch(block, /EXAMPLE/);
+});
+
+test('a trailing schema reminder does not displace the report', () => {
+  const text = `${F}json\n${realBlock}\n${F}\n\nShape: {"summary":"string","proposals":[]}`;
+  assert.equal(extractJsonBlock(text), realBlock);
+});
+
+test('a trailing aside with braces does not displace the report', () => {
+  for (const trailer of ['See {"note":"done"} for details', 'See {} for nothing']) {
+    assert.equal(extractJsonBlock(`${F}json\n${realBlock}\n${F}\n\n${trailer}`), realBlock);
+  }
+});
+
+test('a truncated block reports the parse error, not "no JSON block"', () => {
+  const res = parseDreamReport(`${F}json\n{"where_we_are": "REAL", "risks": [\n`, 'x');
+  assert.equal(res.ok, false);
+  assert.match(res.ok === false ? res.reason : '', /did not parse/);
+});
+
+test('an unterminated string reports the parse error, not "no JSON block"', () => {
+  const res = parseDreamReport(`${F}json\n{"where_we_are": "unterminated\n`, 'x');
+  assert.equal(res.ok, false);
+  assert.match(res.ok === false ? res.reason : '', /did not parse/);
+});
+
+test('tilde fences are honoured, even after an unclosed brace in prose', () => {
+  const text = `- Set {sessionId in the hook\n\n~~~json\n${realBlock}\n~~~\n`;
+  assert.equal(extractJsonBlock(text), realBlock);
+});
+
+test('a report whose strings hold many fences is not capped or truncated', () => {
+  const many = JSON.stringify(
+    {
+      summary: 'REAL',
+      proposals: [],
+      publicSkills: Array.from({ length: 20 }, (_, i) => ({
+        name: `s${i}`,
+        url: 'u',
+        why: `Use:\n${F}sh\nrun ${i}\n${F}`,
+      })),
+    },
+    null,
+    2,
+  );
+  const text = `- Set {sessionId in the hook\n\n${F}json\n${many}\n${F}\n`;
+  assert.equal(extractJsonBlock(text), many);
+});
+
+test('a stray unclosed fence in the prose does not swallow the report', () => {
+  const text = `Example:\n${F}\noops no closer\n\n${F}json\n${realBlock}\n${F}\n`;
+  assert.equal(extractJsonBlock(text), realBlock);
+});
+
+test('a bare-fenced report after a json-tagged example still wins', () => {
+  const text = `${F}json\n{"summary":"EXAMPLE"}\n${F}\n\n${F}\n${realBlock}\n${F}\n`;
+  assert.equal(extractJsonBlock(text), realBlock);
 });
