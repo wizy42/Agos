@@ -155,39 +155,17 @@ if (!tokenLooksReal) {
 /* ------------------------------- repo paths ------------------------------- */
 
 const configPath = join(root, 'cockpit.config.ts');
-let config = readFileSync(configPath, 'utf8');
-const PLACEHOLDER = '~/dev/launchpad';
-
+const config = readFileSync(configPath, 'utf8');
 const expand = (p) => (p.startsWith('~') ? join(homedir(), p.slice(1)) : p);
 
-const configured = [...config.matchAll(/repoPath:\s*'([^']+)'/g)].map((m) => m[1]);
-for (const path of configured) {
-  const full = expand(path);
-  if (existsSync(join(full, '.git'))) {
-    ok('Repo path', `${path} → found`);
-  } else if (path === PLACEHOLDER) {
-    // Try to locate the real clone and write it in.
-    const found = await run('bash', [
-      '-c',
-      `find ~ -maxdepth 5 -type d -name .git -ipath '*launchpad*' 2>/dev/null | head -1`,
-    ]);
-
-    if (found) {
-      const realPath = dirname(found).replace(homedir(), '~');
-      config = config.replace(`'${PLACEHOLDER}'`, `'${realPath}'`);
-      writeFileSync(configPath, config);
-      ok('Repo path', `detected and set to ${realPath}`);
-    } else {
-      fail(
-        'Repo path',
-        `still the placeholder ${PLACEHOLDER}`,
-        'Clone it (git clone https://github.com/wizy42/Launchpad) then re-run,\n' +
-          '      or edit repoPath in cockpit.config.ts by hand.',
-      );
-    }
-  } else {
-    fail('Repo path', `${path} does not exist`, 'Fix repoPath in cockpit.config.ts.');
-  }
+// Repo paths live in the registry, written by `npm run link-repos` after it
+// matches each project's GitHub URL against the clones on this machine. Names
+// are not matched — BotAI's repository is `autobot33`. Only paths pinned by
+// hand in cockpit.config.ts are checked here.
+const pinned = [...config.matchAll(/repoPath:\s*'([^']+)'/g)].map((m) => m[1]);
+for (const path of pinned) {
+  if (existsSync(join(expand(path), '.git'))) ok('Pinned repo', `${path} → found`);
+  else fail('Pinned repo', `${path} does not exist`, 'Fix or remove that repoPath in cockpit.config.ts.');
 }
 
 /* ------------------------------ notion access ----------------------------- */
@@ -243,8 +221,9 @@ console.log('');
 
 if (failures === 0) {
   console.log(`  ${g('Ready.')} Next:\n`);
-  console.log('    npm run dev                                # → http://localhost:4200');
-  console.log('    npm run dream -- --project LaunchPad --force  # the first real Notion write\n');
+  console.log('    npm run link-repos                           # match your clones to the registry, once');
+  console.log('    npm run dev                                  # → http://localhost:4200');
+  console.log('    npm run dream -- --project LaunchPad --force # the first real Notion write\n');
 } else {
   console.log(`  ${r(`${failures} thing(s) left`)} — fix the ✗ lines above, then re-run npm run preflight.\n`);
 }

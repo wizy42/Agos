@@ -3,9 +3,12 @@ import type { CockpitConfig } from './apps/server/src/config-schema.ts';
 /**
  * Cockpit configuration.
  *
- * `projects` maps each tracked Notion project page to its local git repo.
- * The registry row's `Repo path` property is the fallback when a project is
- * not listed here; an entry here wins.
+ * The Cockpit Registry in Notion is the source of truth for tracked projects
+ * and their repo paths — `npm run link-repos` fills paths in by matching each
+ * project's GitHub URL against the clones on this machine.
+ *
+ * `projects` is for overrides only: a `repoUrl` for a page that has no
+ * Repo & Deploy table yet, or a `repoPath` to pin a clone by hand.
  */
 const config: CockpitConfig = {
   notion: {
@@ -28,9 +31,11 @@ const config: CockpitConfig = {
 
   projects: [
     {
-      // "🚀 20 — LaunchPad — Operations Layer for Vibe-Coded Apps"
+      // "🚀 20 — LaunchPad — Operations Layer for Vibe-Coded Apps".
+      // Its Notion page predates the template and has no Repo & Deploy table,
+      // so the URL lives here until one is added.
       notionPageId: '31e89f2e-f0a3-8152-8027-debe304d8fd1',
-      repoPath: '~/dev/launchpad',
+      repoUrl: 'https://github.com/wizy42/Launchpad',
     },
   ],
 };

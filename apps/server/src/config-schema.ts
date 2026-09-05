@@ -6,8 +6,17 @@ export interface TrackedProject {
    * Matched against the registry row's `Project page` URL.
    */
   notionPageId: string;
-  /** Absolute local path to the git repo. `~` is expanded. Overrides the registry's `Repo path`. */
-  repoPath: string;
+  /**
+   * Absolute local path to the git repo. `~` is expanded. Overrides the
+   * registry's `Repo path` — rarely needed now that `npm run link-repos`
+   * writes paths into the registry by matching git remotes.
+   */
+  repoPath?: string;
+  /**
+   * The repo's GitHub URL, for projects whose Notion page has no Repo & Deploy
+   * table yet. `link-repos` reads the page first and falls back to this.
+   */
+  repoUrl?: string;
 }
 
 export interface CockpitConfig {

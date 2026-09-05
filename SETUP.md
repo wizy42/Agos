@@ -8,10 +8,10 @@ Budget about 20 minutes. Steps 1–5 are required; 6–8 are the first real use;
 9–10 are optional.
 
 **Shortcut:** after cloning, run `npm run preflight`. It checks every prerequisite,
-creates `.env`, auto-detects your Launchpad clone and writes the path into
-`cockpit.config.ts`, and verifies the Notion connection — then tells you exactly
-what is left. Re-run it after each fix. The only thing it cannot do for you is
-create the Notion integration (step 3), which is a browser flow in your account.
+creates `.env`, and verifies the Notion connection — then tells you exactly what
+is left. Re-run it after each fix. Then `npm run link-repos` wires your clones to
+the registry. The only thing neither can do for you is create the Notion
+integration (step 3), which is a browser flow in your account.
 
 ---
 
@@ -100,27 +100,34 @@ PORT=4200
 
 ---
 
-## 4. Point LaunchPad at its real repo ← **this one blocks everything**
+## 4. Link your clones to the registry
 
-`cockpit.config.ts` line 33 is still a placeholder:
-
-```ts
-repoPath: '~/dev/launchpad',
+```sh
+npm run link-repos
 ```
 
-Change it to wherever LaunchPad is actually cloned, e.g.:
+For every project in the Cockpit Registry, this reads the project's Notion page
+for its GitHub URL, finds the local clone whose **git remote** matches, and
+writes that path into the registry row. Run it once per machine.
 
-```ts
-repoPath: '~/code/launchpad',
-```
+Matching by remote, not by name, is deliberate: BotAI's repository is
+`autobot33`. A name-based guess would silently miss it.
 
-Until you do, the card reads *"repo not found on this machine"*, and both runs
-and dreams refuse to start.
+For a project with no clone on this machine it prints the exact `git clone`
+command. Run those you want, then re-run `link-repos`.
 
-**Gotcha:** the registry row in Notion also has a `Repo path` column, but
-`cockpit.config.ts` **wins** for any project listed there. Editing only the
-Notion column will appear to do nothing for LaunchPad. Notion's column is the
-fallback for projects you have not listed in the config.
+Two things to know:
+
+- The URL comes from the page's **Repo & Deploy** table, the one the portfolio
+  template defines. A page that predates the template (LaunchPad does) has none,
+  so its URL sits in `cockpit.config.ts` under `repoUrl` instead. Adding the
+  table to the page lets you drop the config entry.
+- The registry is the source of truth for paths. `cockpit.config.ts` is for
+  overrides only — a `repoPath` there pins a clone by hand and wins.
+
+Until a project is linked, its card reads *"repo not found on this machine"*
+and runs and dreams for it refuse to start. Cards for unlinked projects still
+show — the overview works before every repo is wired.
 
 ---
 

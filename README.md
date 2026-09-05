@@ -15,7 +15,7 @@ The short version:
 ```sh
 npm install
 cp .env.example .env      # then paste your NOTION_TOKEN
-# edit cockpit.config.ts → set the real repoPath
+npm run link-repos        # match your clones to the registry by git remote
 npm run dev                  # → http://localhost:4200
 ```
 
