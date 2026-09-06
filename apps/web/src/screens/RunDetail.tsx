@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Run, RunEvent } from '@cockpit/core';
+import type { Run, RunChanges, RunEvent } from '@cockpit/core';
+import { DiffView } from '../components/DiffView.tsx';
 import { RunStream } from '../components/RunStream.tsx';
 import { ago } from '../lib/format.ts';
 import { href } from '../lib/router.ts';
@@ -8,6 +9,8 @@ import { useRunStream } from '../lib/ws.ts';
 interface RunPayload {
   run: Run;
   events: RunEvent[];
+  /** Present for finished builder runs in a git repo; null otherwise. */
+  changes: RunChanges | null;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -63,8 +66,9 @@ export function RunDetail({ id }: { id: string }) {
   if (error) return <p className="text-sm text-rose-300">{error}</p>;
   if (!data) return <p className="text-sm text-neutral-500">Loading…</p>;
 
-  const { run, events } = data;
+  const { run, events, changes } = data;
   const live = run.status === 'running';
+  const builder = run.permissionProfile === 'builder';
 
   return (
     <div className="space-y-6">
@@ -125,6 +129,28 @@ export function RunDetail({ id }: { id: string }) {
         <p className="rounded-lg border border-rose-900/60 bg-rose-950/30 p-3 text-xs text-rose-200">
           {run.error}
         </p>
+      )}
+
+      {builder && (
+        <section>
+          <h2 className="mb-2 flex items-baseline gap-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+            Changes
+            <span className="font-normal normal-case tracking-normal text-neutral-700">
+              {changes ? 'working tree vs HEAD, after the run' : live ? 'captured when the run ends' : ''}
+            </span>
+          </h2>
+          <div className="rounded-lg border border-line bg-panel p-4">
+            {changes ? (
+              <DiffView changes={changes} />
+            ) : live ? (
+              <p className="text-[13px] text-neutral-500">The diff appears once the run finishes.</p>
+            ) : (
+              <p className="text-[13px] text-neutral-500">
+                No diff was captured — the project path is not a git repository.
+              </p>
+            )}
+          </div>
+        </section>
       )}
 
       <section>

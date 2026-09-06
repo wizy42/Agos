@@ -129,6 +129,10 @@ Until a project is linked, its card reads *"repo not found on this machine"*
 and runs and dreams for it refuse to start. Cards for unlinked projects still
 show — the overview works before every repo is wired.
 
+New projects later need none of this by hand: **Add project** on the Portfolio
+screen lists every hub page that is not in the registry yet, creates the row,
+and runs the same remote matching for that one project.
+
 ---
 
 ## 5. First boot

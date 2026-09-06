@@ -75,6 +75,19 @@ keeps it small.
    a dream has landed in Notion once. The next code should exist to make that
    happen or to act on what it reveals.
 
+7. **Projects are added from a dropdown, not by hand.** Reviewing what an
+   "agentic OS" needs surfaced two gaps worth closing now; the founder chose
+   both. The first: **Add project** reads the hub's tier pages and offers every
+   unregistered page. Picking one writes the registry row (`Dream` off) and
+   links the repo by git remote in the same step. The hub keeps its structure;
+   the registry follows it instead of drifting from it.
+
+8. **A builder run shows its diff.** Until now a builder's output was a stream
+   of tool calls; the actual change lived only in the working tree. The run
+   detail now captures `git diff HEAD` and new files when the run ends, with a
+   flag when the tree was dirty beforehand. Read-only git, nothing committed:
+   deciding what to keep stays with the founder.
+
 ## What only the founder can do
 
 Create the Notion integration and connect it to *Convergence Labs Projects*.

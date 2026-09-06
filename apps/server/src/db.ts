@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { resolve } from 'node:path';
-import type { DreamReport, Run, RunEvent, RunStatus } from '@cockpit/core';
+import type { DreamReport, Run, RunChanges, RunEvent, RunStatus } from '@cockpit/core';
 
 /** A dream report as stored, with its provenance. */
 export interface StoredReport {
@@ -82,6 +82,17 @@ CREATE TABLE IF NOT EXISTS reports (
   reviewed   INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS reports_project ON reports (project_id, created_at DESC);
+
+-- What a builder run left in the working tree, captured when it finished.
+CREATE TABLE IF NOT EXISTS run_changes (
+  run_id       TEXT PRIMARY KEY REFERENCES runs (id) ON DELETE CASCADE,
+  head_before  TEXT,
+  dirty_before INTEGER NOT NULL,
+  stat         TEXT NOT NULL,
+  diff         TEXT NOT NULL,
+  untracked    TEXT NOT NULL,
+  truncated    INTEGER NOT NULL
+);
 `;
 
 function toRun(row: RunRow): Run {
@@ -205,6 +216,45 @@ export class Store {
       type: r.type,
       payload: JSON.parse(r.payload) as unknown,
     }));
+  }
+
+  saveChanges(runId: string, changes: RunChanges): void {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO run_changes (run_id, head_before, dirty_before, stat, diff, untracked, truncated)
+         VALUES (@runId, @headBefore, @dirtyBefore, @stat, @diff, @untracked, @truncated)`,
+      )
+      .run({
+        runId,
+        headBefore: changes.headBefore,
+        dirtyBefore: changes.dirtyBefore ? 1 : 0,
+        stat: changes.stat,
+        diff: changes.diff,
+        untracked: JSON.stringify(changes.untracked),
+        truncated: changes.truncated ? 1 : 0,
+      });
+  }
+
+  getChanges(runId: string): RunChanges | null {
+    const row = this.db.prepare(`SELECT * FROM run_changes WHERE run_id = ?`).get(runId) as
+      | {
+          head_before: string | null;
+          dirty_before: number;
+          stat: string;
+          diff: string;
+          untracked: string;
+          truncated: number;
+        }
+      | undefined;
+    if (!row) return null;
+    return {
+      headBefore: row.head_before,
+      dirtyBefore: row.dirty_before === 1,
+      stat: row.stat,
+      diff: row.diff,
+      untracked: JSON.parse(row.untracked) as string[],
+      truncated: row.truncated === 1,
+    };
   }
 
   /** The agent's final text for a run, taken from its result message. */

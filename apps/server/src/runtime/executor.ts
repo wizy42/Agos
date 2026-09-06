@@ -4,6 +4,7 @@ import type { PermissionProfile, Run } from '@cockpit/core';
 import type { Bus } from '../bus.ts';
 import type { Store } from '../db.ts';
 import { expandPath } from '../ingest/activity.ts';
+import { changesBetween, snapshotRepo } from '../ingest/snapshot.ts';
 import { decide, specFor } from './profiles.ts';
 
 export interface LaunchRequest {
@@ -169,6 +170,10 @@ export class Executor {
       },
     };
 
+    // Only a builder can change the tree, so only a builder run gets a diff.
+    // Snapshotting is read-only git; a non-repo cwd simply yields nothing.
+    const before = req.permissionProfile === 'builder' ? await snapshotRepo(cwd) : null;
+
     try {
       for await (const message of query({ prompt: req.prompt, options }) as AsyncIterable<SDKMessage>) {
         this.record(runId, seq++, message.type, message);
@@ -210,6 +215,19 @@ export class Executor {
         error: message,
       });
     } finally {
+      if (before) {
+        // Captured before `run:finished` goes out, so a client that refetches on
+        // that event already finds the diff. A failure here must not mask the run.
+        try {
+          const after = await snapshotRepo(cwd);
+          if (after) this.store.saveChanges(runId, changesBetween(before, after));
+        } catch (err) {
+          this.record(runId, seq++, 'error', {
+            message: `Could not capture the run's changes: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      }
+
       this.active.delete(runId);
       this.bus.broadcast({ kind: 'run:finished', runId });
 

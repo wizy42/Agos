@@ -1,11 +1,16 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { PermissionProfile, Project, Run } from '@cockpit/core';
+import type { Client } from '@notionhq/client';
+import { TIERS, type PermissionProfile, type Project, type Run, type Tier } from '@cockpit/core';
 import { loadAgents, parseAgentDef } from './agents/loader.ts';
 import { Bus } from './bus.ts';
 import type { Store } from './db.ts';
 import type { DreamOutcome } from './dream/pipeline.ts';
+import { findCloneByRemote, githubUrlIn } from './ingest/repos.ts';
+import { listCandidates, registerProject } from './notion/hub.ts';
+import { readProjectPage } from './notion/projectPage.ts';
+import { normalizeNotionId, writeRepoPath, type RegistrySchema } from './notion/registry.ts';
 import type { Portfolio } from './portfolio.ts';
 import type { LibrarianOutcome } from './skills/librarian.ts';
 import { Executor } from './runtime/executor.ts';
@@ -70,6 +75,18 @@ function startJob<T>(
   return Promise.race([launched.then((run) => ({ run }) as const), settled]);
 }
 
+/**
+ * What the project wizard needs to write a registry row: the Notion client,
+ * the registry's introspected schema, and the hub page whose tier pages hold
+ * the project pages. Absent (tests, or a server without Notion) the wizard
+ * routes answer 503.
+ */
+export interface Registry {
+  notion: Client;
+  schema: RegistrySchema;
+  hubPageId: string;
+}
+
 export interface App {
   app: FastifyInstance;
   bus: Bus;
@@ -83,8 +100,9 @@ export function buildApp(deps: {
   store: Store;
   repoRoot: string;
   jobs?: () => Jobs | null;
+  registry?: Registry;
 }): App {
-  const { portfolio, store, repoRoot, jobs } = deps;
+  const { portfolio, store, repoRoot, jobs, registry } = deps;
 
   const app = Fastify({ logger: false });
   const bus = new Bus(app.server);
@@ -121,7 +139,7 @@ export function buildApp(deps: {
       reply.code(404);
       return { error: 'not_found' };
     }
-    return { run, events: store.listEvents(run.id) };
+    return { run, events: store.listEvents(run.id), changes: store.getChanges(run.id) };
   });
 
   app.post<{
@@ -191,6 +209,87 @@ export function buildApp(deps: {
     }
     return { ok: true };
   });
+
+  /* ----------------------------- project wizard ---------------------------- */
+
+  /** Hub project pages not yet in the registry, grouped for a dropdown. */
+  app.get('/api/hub/candidates', async (_req, reply) => {
+    if (!registry) {
+      reply.code(503);
+      return { error: 'registry_unavailable', message: 'This server was started without Notion.' };
+    }
+    try {
+      const { projects } = await portfolio.load();
+      const registered = projects.map((p) => p.projectPageUrl).filter((u): u is string => !!u);
+      const candidates = await listCandidates(registry.notion, registry.hubPageId, registered);
+      return { candidates };
+    } catch (err) {
+      reply.code(502);
+      return { error: 'notion_unavailable', message: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  /**
+   * Register a hub page as a project, then try to link its repo the way
+   * `link-repos` does: GitHub URL from the page, local clone by git remote.
+   * Never clones; when nothing matches, the response carries the command.
+   */
+  app.post<{ Body: { pageId?: string; name?: string; tier?: Tier } }>(
+    '/api/registry',
+    async (req, reply) => {
+      if (!registry) {
+        reply.code(503);
+        return { error: 'registry_unavailable', message: 'This server was started without Notion.' };
+      }
+
+      const pageId = normalizeNotionId(req.body?.pageId ?? '');
+      const name = req.body?.name?.trim() ?? '';
+      const tier = req.body?.tier;
+      if (!pageId || !name || !tier || !TIERS.includes(tier)) {
+        reply.code(400);
+        return { error: 'bad_request', message: 'pageId, name and a known tier are required.' };
+      }
+
+      const { projects } = await portfolio.load();
+      const existing = projects.find(
+        (p) => p.projectPageUrl && normalizeNotionId(p.projectPageUrl) === pageId,
+      );
+      if (existing) {
+        reply.code(409);
+        return { error: 'already_registered', message: `${existing.name} already points at that page.` };
+      }
+
+      let rowId: string;
+      try {
+        ({ rowId } = await registerProject(registry.notion, registry.schema, { pageId, name, tier }));
+      } catch (err) {
+        reply.code(502);
+        return { error: 'register_failed', message: err instanceof Error ? err.message : String(err) };
+      }
+
+      // Linking is best effort: the row exists either way, and link-repos can
+      // finish the job later.
+      let linked: string | null = null;
+      let cloneHint: string | null = null;
+      try {
+        const page = await readProjectPage(registry.notion, pageId);
+        const url = page.text ? githubUrlIn(page.text) : null;
+        if (url) {
+          const clone = await findCloneByRemote(url);
+          if (clone) {
+            await writeRepoPath(registry.notion, registry.schema, rowId, clone);
+            linked = clone;
+          } else {
+            cloneHint = `git clone ${url} ~/code/${url.split('/').pop() ?? name}`;
+          }
+        }
+      } catch {
+        // Leave both null: the UI then points at link-repos.
+      }
+
+      return { rowId, name, tier, linked, cloneHint };
+    },
+  );
 
   /* ------------------------- run the loops by hand ------------------------- */
 
