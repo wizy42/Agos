@@ -60,7 +60,9 @@ function PortfolioScreen() {
       )}
 
       {!error && !data && loading && <p className="text-sm text-neutral-500">Loading portfolio…</p>}
-      {!error && data && <Portfolio projects={data.projects} fetchedAt={data.fetchedAt} />}
+      {!error && data && (
+        <Portfolio projects={data.projects} fetchedAt={data.fetchedAt} onChanged={() => void load()} />
+      )}
     </>
   );
 }
