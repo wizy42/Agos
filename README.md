@@ -41,6 +41,10 @@ cockpit.config.ts   Notion ids, schedules, per-project overrides (repoUrl / repo
 - **Cockpit Registry** — one row per tracked project, under the hub page.
   Edit `Repo path` and `Dream` here; `Status`, `Last dream`, and `Next step`
   are written by the dream loop.
+- **Add project** on the Portfolio screen lists every hub page not yet in the
+  registry, grouped by tier. Pick one, adjust the name, and the row is created
+  with `Dream` off; the repo is linked on the spot when a clone matches the
+  page's GitHub URL, exactly as `link-repos` would do it.
 - Property names are introspected at boot, so renaming a column in Notion does
   not break the server.
 
@@ -121,3 +125,11 @@ without prompting — `canUseTool` never sees those, so an observer could
 otherwise shell out to any command deemed read-only, `ls` and `cat` included.
 
 `npm test` covers the gate directly.
+
+## What a builder changed
+
+A builder run's detail page has a **Changes** section: the working tree's diff
+against `HEAD` plus any new files, captured the moment the run ends and stored
+with the run. Snapshots are read-only git — nothing is stashed, staged, or
+committed on your behalf. If the tree was already dirty before the run, the
+section says so instead of guessing which lines are the agent's.

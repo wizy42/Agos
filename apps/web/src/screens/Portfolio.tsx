@@ -1,4 +1,5 @@
 import { TIERS, type Project, type Tier } from '@cockpit/core';
+import { AddProject } from '../components/AddProject.tsx';
 import { ProjectCard } from '../components/ProjectCard.tsx';
 import { ago } from '../lib/format.ts';
 
@@ -17,20 +18,28 @@ function group(projects: Project[]): [Tier | typeof UNTIERED, Project[]][] {
 export function Portfolio({
   projects,
   fetchedAt,
+  onChanged,
 }: {
   projects: Project[];
   fetchedAt: string;
+  /** Called after the registry changed here, so the caller can reload it. */
+  onChanged: () => void;
 }) {
   if (projects.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">
-        The Cockpit Registry has no rows yet. Add a project row in Notion and reload.
-      </p>
+      <div className="space-y-4">
+        <p className="text-sm text-neutral-500">
+          The Cockpit Registry has no rows yet. Pick a project page from the hub to add the first one.
+        </p>
+        <AddProject onAdded={onChanged} />
+      </div>
     );
   }
 
   return (
     <div className="space-y-8">
+      <AddProject onAdded={onChanged} />
+
       {group(projects).map(([tier, ps]) => (
         <section key={tier}>
           <h2 className="mb-3 flex items-baseline gap-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">

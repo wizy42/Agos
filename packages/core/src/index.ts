@@ -94,6 +94,23 @@ export interface Run {
   error: string | null;
 }
 
+/**
+ * What a builder run did to its repository: the working tree after the run,
+ * diffed against HEAD. When the tree was already dirty before the run started,
+ * `dirtyBefore` says so — the diff then includes changes the agent did not make.
+ */
+export interface RunChanges {
+  headBefore: string | null;
+  dirtyBefore: boolean;
+  /** `git diff --stat` summary. */
+  stat: string;
+  /** Unified diff of tracked files. Capped; see `truncated`. */
+  diff: string;
+  /** New files the diff cannot show, since git does not know them yet. */
+  untracked: string[];
+  truncated: boolean;
+}
+
 /** One persisted SDK message from a run, replayable in order. */
 export interface RunEvent {
   id: number;

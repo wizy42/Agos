@@ -51,7 +51,9 @@ const normalize = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, '
 
 /** Bare 32-char hex form, so ids and URLs compare equal regardless of dashes. */
 export function normalizeNotionId(raw: string): string | null {
-  const hex = raw.toLowerCase().replace(/[^0-9a-f]/g, '');
+  // "Copy link" appends ?pvs=4 or ?source=copy_link; those carry hex letters
+  // that would otherwise shift the id we take from the end.
+  const hex = raw.replace(/[?#].*$/s, '').toLowerCase().replace(/[^0-9a-f]/g, '');
   // A URL contributes trailing/leading noise; the page id is the last 32 hex chars.
   if (hex.length < 32) return null;
   return hex.slice(hex.length - 32);

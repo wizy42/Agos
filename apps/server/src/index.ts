@@ -86,7 +86,13 @@ try {
   // Both loops need the Executor that buildApp creates, so the routes reach
   // them through this holder, filled in a few lines below.
   let jobs: Jobs | null = null;
-  const { app, executor } = buildApp({ portfolio, store, repoRoot, jobs: () => jobs });
+  const { app, executor } = buildApp({
+    portfolio,
+    store,
+    repoRoot,
+    jobs: () => jobs,
+    registry: { notion, schema, hubPageId: cockpitConfig.notion.hubPageId },
+  });
 
   const pipeline = new DreamPipeline({ repoRoot, store, executor, notion, schema });
   startScheduler({
