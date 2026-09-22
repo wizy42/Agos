@@ -27,6 +27,14 @@ the integration. The **Cockpit Registry** database inherits that access.
 Leave `ANTHROPIC_API_KEY` **unset**. If it is set, the Agent SDK silently
 overrides your Claude Code subscription auth and bills API credits instead.
 
+**No Notion yet?** `COCKPIT_STUB=1 npm run dev` boots the same UI against an
+in-memory registry of three sample projects. One of them is this repo, so its
+card shows real git activity; another names a clone that is not on this
+machine, so that state shows too. Nothing is read from or written to Notion,
+and the project wizard, dreams and the librarian answer 503. It is for looking
+at the UI in a sandbox, in CI, or on a laptop where the integration does not
+exist yet — `npm run preflight` still reports the missing token.
+
 ## Layout
 
 ```
