@@ -4,6 +4,7 @@ import {
   describeNotionFailure,
   describeStartupFailure,
   maskToken,
+  stubRequested,
   tokenSource,
   type NotionContext,
 } from './boot.ts';
@@ -89,4 +90,15 @@ test('token source distinguishes an exported value from .env', () => {
 test('masking never prints a whole token', () => {
   assert.equal(maskToken('ntn_abcdefghijklmnop'), 'ntn_abcd…');
   assert.equal(maskToken('short'), '…');
+});
+
+test('COCKPIT_STUB is on for any value that is not empty, 0 or false', () => {
+  for (const on of ['1', 'true', 'yes', ' 1 ']) {
+    assert.equal(stubRequested({ COCKPIT_STUB: on }), true, JSON.stringify(on));
+  }
+  for (const off of [undefined, '', '  ', '0', 'false', 'FALSE']) {
+    assert.equal(stubRequested({ COCKPIT_STUB: off }), false, JSON.stringify(off));
+  }
+  // A token alongside the flag does not turn Notion back on: the flag is explicit.
+  assert.equal(stubRequested({ COCKPIT_STUB: '1', NOTION_TOKEN: 'ntn_real' }), true);
 });

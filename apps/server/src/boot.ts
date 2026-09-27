@@ -36,6 +36,26 @@ export function fatal(failure: BootFailure): never {
   process.exit(1);
 }
 
+/**
+ * `COCKPIT_STUB=1` boots the server against an in-memory registry instead of
+ * Notion: no token check, no round-trip, three sample projects, and the
+ * wizard / dream / librarian routes answering 503. For looking at the UI where
+ * the integration does not exist — a sandbox, CI, a fresh laptop.
+ *
+ * The flag wins even when a token is present, so a demo environment cannot
+ * accidentally read a real workspace. `scripts/dev.mjs` applies the same rule
+ * before it spawns anything; keep the two in sync.
+ */
+export function stubRequested(env: NodeJS.ProcessEnv): boolean {
+  const value = env.COCKPIT_STUB?.trim().toLowerCase() ?? '';
+  return value !== '' && value !== '0' && value !== 'false';
+}
+
+/** The one line printed when Notion is stubbed. `scripts/dev.mjs` prints the same. */
+export const STUB_BANNER =
+  '[cockpit] Notion is stubbed (COCKPIT_STUB=1): sample projects from memory; ' +
+  'the wizard, dreams and the librarian answer 503.';
+
 /** Where a value in `process.env` came from, for error messages. */
 export type EnvSource = 'shell' | '.env' | 'unset';
 

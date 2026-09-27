@@ -98,6 +98,13 @@ PORT=4200
 > `Could not read the Cockpit Registry: ... 404`. That error means "shared with
 > the integration?", not "wrong token".
 
+**Want to see the UI before doing any of this?** `COCKPIT_STUB=1 npm run dev`
+boots against three sample projects held in memory, no token needed. One is
+this repo, so its card shows real git activity; another names a clone that is
+not on this machine, so you see that state as well. Nothing touches Notion,
+the wizard, dreams and the librarian answer 503, and `npm run preflight` still
+reports the missing token. Drop the variable once the token is in `.env`.
+
 ---
 
 ## 4. Link your clones to the registry
@@ -282,6 +289,7 @@ No restart needed for step 1; the portfolio reads Notion live.
 | `NOTION_TOKEN is not set` | No `.env`, or the variable is empty. |
 | `Notion rejected NOTION_TOKEN … as invalid` | The token was revoked, rotated, or mistyped. Copy a current one from the integrations page (step 3). |
 | *"NOTION_TOKEN comes from your shell environment"* | An `export NOTION_TOKEN=…` in `~/.zshrc` overrides `.env`, so editing the file changes nothing. `unset NOTION_TOKEN`. |
+| *"Notion is stubbed (COCKPIT_STUB=1)"* although you have a token | `COCKPIT_STUB` is set in your shell or `.env`, and it wins over the token. Unset it. |
 | `The Cockpit Registry … is not visible to this integration` | Hub page not shared with the integration (step 3.4). |
 | `Could not read the Cockpit Registry … 404` | Same. |
 | Card says *repo not found on this machine* | `repoPath` still wrong (step 4). |

@@ -24,6 +24,19 @@ const apiPort = uiPort + 1;
 /** Kept in sync with `FATAL_PREFIX` in apps/server/src/boot.ts. */
 const FATAL_PREFIX = '[cockpit] fatal:';
 
+/*
+ * COCKPIT_STUB=1 boots against sample projects held in memory: no token, no
+ * Notion round-trip, and the server (which reads the same variable from the
+ * env we hand it) starts none of the loops. For a look at the UI wherever the
+ * integration does not exist yet. Kept in sync with `stubRequested` and
+ * `STUB_BANNER` in apps/server/src/boot.ts.
+ */
+const stubValue = (process.env.COCKPIT_STUB ?? '').trim().toLowerCase();
+const stub = stubValue !== '' && stubValue !== '0' && stubValue !== 'false';
+const STUB_BANNER =
+  '[cockpit] Notion is stubbed (COCKPIT_STUB=1): sample projects from memory; ' +
+  'the wizard, dreams and the librarian answer 503.';
+
 /** Same shape the server uses: one sentence, then the fix, indented under it. */
 function die(message, hint) {
   const indented = hint
@@ -34,53 +47,57 @@ function die(message, hint) {
   process.exit(1);
 }
 
-// Fail fast here rather than inside `tsx watch`, which keeps the watcher alive
-// after the server exits and would leave `npm run dev` hanging silently.
-if (!process.env.NOTION_TOKEN) {
-  die(
-    'NOTION_TOKEN is not set.',
-    'cp .env.example .env, then add the internal integration token\n' +
-      'shared with the "Convergence Labs Projects" hub page.',
-  );
-}
-
-if (shellToken) {
-  console.warn(
-    '[cockpit] NOTION_TOKEN comes from your shell environment, not .env — an exported\n' +
-      '          value wins over the file. Editing .env will have no effect until you\n' +
-      '          `unset NOTION_TOKEN` in this shell.',
-  );
-}
-
-/*
- * One cheap round-trip before spawning anything. A revoked or mistyped token is
- * the most common way `npm run dev` fails, and catching it here means the first
- * line on screen is the fix — not two subprocesses and a wall of proxy errors.
- * Anything other than a definitive 401 is left to the server to report: being
- * offline should not stop you from booting the UI.
- */
-try {
-  const res = await fetch('https://api.notion.com/v1/users/me', {
-    headers: {
-      Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
-      'Notion-Version': '2025-09-03',
-    },
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  if (res.status === 401) {
-    const token = process.env.NOTION_TOKEN;
+if (stub) {
+  console.log(`\n${STUB_BANNER}\n`);
+} else {
+  // Fail fast here rather than inside `tsx watch`, which keeps the watcher alive
+  // after the server exits and would leave `npm run dev` hanging silently.
+  if (!process.env.NOTION_TOKEN) {
     die(
-      `Notion rejected NOTION_TOKEN (${token.slice(0, 8)}…) as invalid.`,
-      `It was read from ${shellToken ? 'your shell environment' : '.env in this repo'}.\n` +
-        'Create an internal integration at https://www.notion.so/profile/integrations\n' +
-        '(Read + Update + Insert), copy the token — it starts with "ntn_" — and paste\n' +
-        'it into .env. Tokens stop working when the integration is deleted or rotated.\n' +
-        'Then: npm run preflight',
+      'NOTION_TOKEN is not set.',
+      'cp .env.example .env, then add the internal integration token\n' +
+        'shared with the "Convergence Labs Projects" hub page.',
     );
   }
-} catch {
-  // Offline, or Notion is slow. The server reports it properly if it matters.
+
+  if (shellToken) {
+    console.warn(
+      '[cockpit] NOTION_TOKEN comes from your shell environment, not .env — an exported\n' +
+        '          value wins over the file. Editing .env will have no effect until you\n' +
+        '          `unset NOTION_TOKEN` in this shell.',
+    );
+  }
+
+  /*
+   * One cheap round-trip before spawning anything. A revoked or mistyped token is
+   * the most common way `npm run dev` fails, and catching it here means the first
+   * line on screen is the fix — not two subprocesses and a wall of proxy errors.
+   * Anything other than a definitive 401 is left to the server to report: being
+   * offline should not stop you from booting the UI.
+   */
+  try {
+    const res = await fetch('https://api.notion.com/v1/users/me', {
+      headers: {
+        Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
+        'Notion-Version': '2025-09-03',
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (res.status === 401) {
+      const token = process.env.NOTION_TOKEN;
+      die(
+        `Notion rejected NOTION_TOKEN (${token.slice(0, 8)}…) as invalid.`,
+        `It was read from ${shellToken ? 'your shell environment' : '.env in this repo'}.\n` +
+          'Create an internal integration at https://www.notion.so/profile/integrations\n' +
+          '(Read + Update + Insert), copy the token — it starts with "ntn_" — and paste\n' +
+          'it into .env. Tokens stop working when the integration is deleted or rotated.\n' +
+          'Then: npm run preflight',
+      );
+    }
+  } catch {
+    // Offline, or Notion is slow. The server reports it properly if it matters.
+  }
 }
 
 // npm ships with Node; `npm.cmd` is the Windows shim.
@@ -168,7 +185,8 @@ while (Date.now() < deadline && !shuttingDown && !healthy && !bootFailed) {
 if (shuttingDown) {
   // nothing to say; the exit handler already reported why
 } else if (healthy) {
-  console.log(`\n  \x1b[1mCockpit\x1b[0m  →  \x1b[36mhttp://localhost:${uiPort}\x1b[0m\n`);
+  const note = stub ? '  \x1b[2m(Notion stubbed — sample projects)\x1b[0m' : '';
+  console.log(`\n  \x1b[1mCockpit\x1b[0m  →  \x1b[36mhttp://localhost:${uiPort}\x1b[0m${note}\n`);
 } else if (bootFailed) {
   // Give the server's own hint lines a moment to land above this.
   await new Promise((r) => setTimeout(r, 200));

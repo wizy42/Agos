@@ -8,11 +8,14 @@ import {
   describeNotionFailure,
   describeStartupFailure,
   fatal,
+  STUB_BANNER,
+  stubRequested,
   tokenSource,
 } from './boot.ts';
 import { Store } from './db.ts';
 import { DreamPipeline } from './dream/pipeline.ts';
 import { PortfolioService } from './portfolio.ts';
+import { StubPortfolio } from './portfolio.stub.ts';
 import { startLibrarian, startScheduler } from './scheduler.ts';
 import { Librarian } from './skills/librarian.ts';
 
@@ -33,85 +36,112 @@ if (process.env.ANTHROPIC_API_KEY) {
   );
 }
 
-const notionToken = process.env.NOTION_TOKEN;
-if (!notionToken) {
-  fatal({
-    message: 'NOTION_TOKEN is not set.',
-    hint:
-      'cp .env.example .env, then add the internal integration token shared with\n' +
-      'the "Convergence Labs Projects" hub page.\n' +
-      'Then: npm run preflight',
-  });
-}
-
-const source = tokenSource(shellToken, notionToken);
-// `npm run dev` says this before spawning us; no need to say it twice.
-if (source === 'shell' && !process.env.COCKPIT_DEV) {
-  console.warn(
-    '[cockpit] NOTION_TOKEN comes from your shell environment, not .env — an exported\n' +
-      '          value wins over the file. Editing .env will have no effect until you\n' +
-      '          `unset NOTION_TOKEN` in this shell.',
-  );
-}
-
 // `tsx watch` keeps running after the script exits, so an unhandled rejection
 // would otherwise leave a silent, non-serving process behind.
 process.on('unhandledRejection', (reason) => {
   fatal(describeStartupFailure(reason, apiPort));
 });
 
-const notion = new Client({ auth: notionToken });
-const portfolio = new PortfolioService(notion, cockpitConfig);
-
-const schema = await portfolio.init().catch((err: unknown) => {
-  fatal(
-    describeNotionFailure(err, {
-      token: notionToken,
-      source,
-      registryDatabaseId: cockpitConfig.notion.registryDatabaseId,
-    }),
-  );
-});
-
-if (schema.missing.length) {
-  console.warn(
-    `[cockpit] Registry properties not found: ${schema.missing.join(', ')}. ` +
-      'Those fields will read as empty.',
-  );
+if (stubRequested(process.env)) {
+  await bootStubbed();
+} else {
+  await bootWithNotion();
 }
 
-try {
-  const store = new Store(repoRoot);
+/**
+ * `COCKPIT_STUB=1`: the sample registry from memory, no Notion client, and
+ * none of the loops — so the wizard, dream and librarian routes answer 503.
+ */
+async function bootStubbed(): Promise<void> {
+  // `npm run dev` prints this before spawning us; no need to say it twice.
+  if (!process.env.COCKPIT_DEV) console.log(STUB_BANNER);
 
-  // Both loops need the Executor that buildApp creates, so the routes reach
-  // them through this holder, filled in a few lines below.
-  let jobs: Jobs | null = null;
-  const { app, executor } = buildApp({
-    portfolio,
-    store,
-    repoRoot,
-    jobs: () => jobs,
-    registry: { notion, schema, hubPageId: cockpitConfig.notion.hubPageId },
+  try {
+    const store = new Store(repoRoot);
+    const { app } = buildApp({ portfolio: new StubPortfolio(repoRoot), store, repoRoot });
+
+    await app.listen({ port: apiPort, host: '127.0.0.1' });
+    console.log(`[cockpit] api listening on http://localhost:${apiPort}`);
+  } catch (err) {
+    fatal(describeStartupFailure(err, apiPort));
+  }
+}
+
+async function bootWithNotion(): Promise<void> {
+  const notionToken = process.env.NOTION_TOKEN;
+  if (!notionToken) {
+    fatal({
+      message: 'NOTION_TOKEN is not set.',
+      hint:
+        'cp .env.example .env, then add the internal integration token shared with\n' +
+        'the "Convergence Labs Projects" hub page.\n' +
+        'Then: npm run preflight',
+    });
+  }
+
+  const source = tokenSource(shellToken, notionToken);
+  // `npm run dev` says this before spawning us; no need to say it twice.
+  if (source === 'shell' && !process.env.COCKPIT_DEV) {
+    console.warn(
+      '[cockpit] NOTION_TOKEN comes from your shell environment, not .env — an exported\n' +
+        '          value wins over the file. Editing .env will have no effect until you\n' +
+        '          `unset NOTION_TOKEN` in this shell.',
+    );
+  }
+
+  const notion = new Client({ auth: notionToken });
+  const portfolio = new PortfolioService(notion, cockpitConfig);
+
+  const schema = await portfolio.init().catch((err: unknown) => {
+    fatal(
+      describeNotionFailure(err, {
+        token: notionToken,
+        source,
+        registryDatabaseId: cockpitConfig.notion.registryDatabaseId,
+      }),
+    );
   });
 
-  const pipeline = new DreamPipeline({ repoRoot, store, executor, notion, schema });
-  startScheduler({
-    schedule: cockpitConfig.dream.schedule,
-    maxProjectsPerNight: cockpitConfig.dream.maxProjectsPerNight,
-    portfolio,
-    pipeline,
-  });
+  if (schema.missing.length) {
+    console.warn(
+      `[cockpit] Registry properties not found: ${schema.missing.join(', ')}. ` +
+        'Those fields will read as empty.',
+    );
+  }
 
-  const librarian = new Librarian({ repoRoot, store, executor });
-  startLibrarian({ schedule: cockpitConfig.librarian.schedule, portfolio, librarian });
+  try {
+    const store = new Store(repoRoot);
 
-  jobs = {
-    dream: (project, onRun) => pipeline.dream(project, { force: true, onRun }),
-    librarian: (projects, onRun) => librarian.run(projects, { onRun }),
-  };
+    // Both loops need the Executor that buildApp creates, so the routes reach
+    // them through this holder, filled in a few lines below.
+    let jobs: Jobs | null = null;
+    const { app, executor } = buildApp({
+      portfolio,
+      store,
+      repoRoot,
+      jobs: () => jobs,
+      registry: { notion, schema, hubPageId: cockpitConfig.notion.hubPageId },
+    });
 
-  await app.listen({ port: apiPort, host: '127.0.0.1' });
-  console.log(`[cockpit] api listening on http://localhost:${apiPort}`);
-} catch (err) {
-  fatal(describeStartupFailure(err, apiPort));
+    const pipeline = new DreamPipeline({ repoRoot, store, executor, notion, schema });
+    startScheduler({
+      schedule: cockpitConfig.dream.schedule,
+      maxProjectsPerNight: cockpitConfig.dream.maxProjectsPerNight,
+      portfolio,
+      pipeline,
+    });
+
+    const librarian = new Librarian({ repoRoot, store, executor });
+    startLibrarian({ schedule: cockpitConfig.librarian.schedule, portfolio, librarian });
+
+    jobs = {
+      dream: (project, onRun) => pipeline.dream(project, { force: true, onRun }),
+      librarian: (projects, onRun) => librarian.run(projects, { onRun }),
+    };
+
+    await app.listen({ port: apiPort, host: '127.0.0.1' });
+    console.log(`[cockpit] api listening on http://localhost:${apiPort}`);
+  } catch (err) {
+    fatal(describeStartupFailure(err, apiPort));
+  }
 }
