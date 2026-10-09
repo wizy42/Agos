@@ -172,6 +172,46 @@ export interface LibrarianReport {
   summary: string;
 }
 
+/**
+ * The axes the President reviews the whole portfolio on. Product is what is
+ * built; the other five are what a solo founder forgets while building it.
+ */
+export const DIMENSIONS = ['product', 'legal', 'marketing', 'traction', 'tooling', 'assets'] as const;
+export type Dimension = (typeof DIMENSIONS)[number];
+
+export interface DimensionReview {
+  dimension: Dimension;
+  /** Where the portfolio stands on this axis, judged from evidence. */
+  where_we_are: string;
+  /** What is missing — concrete, named per project where possible. */
+  missing: string[];
+}
+
+/** Who carries out a cross-project priority. `founder` is the one no agent can do. */
+export const PRIORITY_AGENTS = ['founder', 'builder', 'observer'] as const;
+export type PriorityAgent = (typeof PRIORITY_AGENTS)[number];
+
+/** One ranked cross-project action in a President report. */
+export interface Priority {
+  /** Registry project name, or `portfolio` when it spans all of them. */
+  project: string;
+  title: string;
+  why: string;
+  agent: PriorityAgent;
+  /** A self-contained instruction: for an agent in that repo, or for the founder. */
+  prompt: string;
+}
+
+/** The single JSON block a President run must end with. */
+export interface PresidentReport {
+  where_we_are: string;
+  dimensions: DimensionReview[];
+  /** At most five, most important first. */
+  priorities: Priority[];
+  questions_for_ceo: string[];
+  health: Health;
+}
+
 /** The single JSON block a dream run must end with. */
 export interface DreamReport {
   project: string;

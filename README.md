@@ -31,7 +31,7 @@ overrides your Claude Code subscription auth and bills API credits instead.
 in-memory registry of three sample projects. One of them is this repo, so its
 card shows real git activity; another names a clone that is not on this
 machine, so that state shows too. Nothing is read from or written to Notion,
-and the project wizard, dreams and the librarian answer 503. It is for looking
+and the project wizard, dreams, the librarian and the President answer 503. It is for looking
 at the UI in a sandbox, in CI, or on a laptop where the integration does not
 exist yet — `npm run preflight` still reports the missing token.
 
@@ -40,7 +40,9 @@ exist yet — `npm run preflight` still reports the missing token.
 ```
 apps/server/        Fastify API, Notion sync, read-only git/session ingestors
 apps/web/           Vite + React + Tailwind UI
-packages/core/      shared types: Project, AgentDef, Run, DreamReport
+packages/core/      shared types: Project, AgentDef, Run, DreamReport, PresidentReport
+agents/             dream-reviewer, skill-librarian, president — YAML, editable in the UI
+prompts/            the prompt template each agent runs with
 cockpit.config.ts   Notion ids, schedules, per-project overrides (repoUrl / repoPath)
 ```
 
@@ -62,8 +64,54 @@ cockpit.config.ts   Notion ids, schedules, per-project overrides (repoUrl / repo
 - **M1 — Run & watch** ✅ launch observer/builder runs, live stream, cost + replayable detail
 - **M2 — Dreams** ✅ YAML agents, nightly cron, dream contract, Dream Log writes, CEO inbox
 - **M3 — Librarian & polish** ✅ skills inventory, weekly librarian, staging with install/reject
+- **M4 — President** ✅ weekly cross-project review: six dimensions, ranked priorities, Portfolio Log
 
-Build stops at M3. New ideas go to the brief's backlog, not into the app.
+Build stops at M4. New ideas go to the brief's backlog, not into the app.
+
+## President
+
+Dreams look at one project a night. The President looks at all of them once a
+week and answers what no single dream can: *where is the company*, on six
+dimensions — **product, legal, marketing, traction, tooling, assets** — and
+*what are the five things, across every project, that move it closest to
+revenue*. Priorities are cross-project and ranked; three of five may land on
+one project if that is the truth. A priority may be to pause or kill one.
+
+**Run President now** on the **President** screen starts a pass and follows
+the run. The dropdown next to it keeps the whole portfolio in view but weights
+the pass toward one project. From a terminal:
+
+```sh
+npm run president                       # the weekly pass, by hand
+npm run president -- --focus LaunchPad  # same, weighted toward one project
+```
+
+Weekly at `president.schedule` (Monday 04:00, after the librarian). Inputs,
+per live project: the registry row and git activity, the Notion page extract
+(`AGENT_CONTEXT`, `DECISION LOG`, `BACKLOG`), the last dream report, the last
+two weeks of commits, and the founder's recent Claude Code sessions on this
+disk — one line per session, what was asked. Plus the previous President
+report, so the loop notices what did not move. Archived projects get a name,
+not a section. Sessions run on claude.ai/code are not on this disk and the
+brief says so rather than guessing.
+
+The agent runs with the **observer** profile from the Cockpit root: it may read
+any tracked repo by absolute path and nothing else. It ends with a single JSON
+block; the server parses it, appends a dated section to the **Portfolio Log**
+page under the hub (created on first use, nothing else restructured), and
+drops the report into the CEO inbox. Each priority names an `agent`:
+`builder` or `observer` approves into a run on that project, exactly like a
+dream action; `founder` is the kind no agent can do — a sale, a signature, a
+conversation — and is shown as the instruction it is. A parse failure is a
+**failed run surfaced in the inbox**, never a silent drop.
+
+`prompts/president.md` carries the same bias rule as dreams: a report whose
+five priorities are all engineering is a bad report. It also says what the
+agent must not do: estimate traction numbers the pages do not carry, or call
+legal "fine" when the pages carry nothing on it. The President is only as
+honest as the project pages — a line of `MRR`, `legal status` or `channels
+tried` in `AGENT_CONTEXT` is what turns those dimensions from guesses into
+findings.
 
 ## Skill librarian
 

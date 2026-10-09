@@ -16,7 +16,8 @@ import { Store } from './db.ts';
 import { DreamPipeline } from './dream/pipeline.ts';
 import { PortfolioService } from './portfolio.ts';
 import { StubPortfolio } from './portfolio.stub.ts';
-import { startLibrarian, startScheduler } from './scheduler.ts';
+import { President } from './president/pipeline.ts';
+import { startLibrarian, startPresident, startScheduler } from './scheduler.ts';
 import { Librarian } from './skills/librarian.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -50,7 +51,8 @@ if (stubRequested(process.env)) {
 
 /**
  * `COCKPIT_STUB=1`: the sample registry from memory, no Notion client, and
- * none of the loops — so the wizard, dream and librarian routes answer 503.
+ * none of the loops — so the wizard, dream, librarian and President routes
+ * answer 503.
  */
 async function bootStubbed(): Promise<void> {
   // `npm run dev` prints this before spawning us; no need to say it twice.
@@ -134,9 +136,19 @@ async function bootWithNotion(): Promise<void> {
     const librarian = new Librarian({ repoRoot, store, executor });
     startLibrarian({ schedule: cockpitConfig.librarian.schedule, portfolio, librarian });
 
+    const president = new President({
+      repoRoot,
+      store,
+      executor,
+      notion,
+      hubPageId: cockpitConfig.notion.hubPageId,
+    });
+    startPresident({ schedule: cockpitConfig.president.schedule, portfolio, president });
+
     jobs = {
       dream: (project, onRun) => pipeline.dream(project, { force: true, onRun }),
       librarian: (projects, onRun) => librarian.run(projects, { onRun }),
+      president: (projects, opts, onRun) => president.run(projects, { ...opts, onRun }),
     };
 
     await app.listen({ port: apiPort, host: '127.0.0.1' });

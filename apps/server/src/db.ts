@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { resolve } from 'node:path';
-import type { DreamReport, Run, RunChanges, RunEvent, RunStatus } from '@cockpit/core';
+import type { DreamReport, PresidentReport, Run, RunChanges, RunEvent, RunStatus } from '@cockpit/core';
 
 /** A dream report as stored, with its provenance. */
 export interface StoredReport {
@@ -10,6 +10,16 @@ export interface StoredReport {
   createdAt: string;
   health: string | null;
   report: DreamReport;
+  reviewed: boolean;
+}
+
+/** A President report as stored. The durable copy is the Portfolio Log in Notion. */
+export interface StoredPortfolioReport {
+  id: string;
+  runId: string;
+  createdAt: string;
+  health: string | null;
+  report: PresidentReport;
   reviewed: boolean;
 }
 
@@ -82,6 +92,17 @@ CREATE TABLE IF NOT EXISTS reports (
   reviewed   INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS reports_project ON reports (project_id, created_at DESC);
+
+-- President reports: one per weekly pass over the whole portfolio, no project.
+CREATE TABLE IF NOT EXISTS portfolio_reports (
+  id         TEXT PRIMARY KEY,
+  run_id     TEXT NOT NULL REFERENCES runs (id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  health     TEXT,
+  json       TEXT NOT NULL,
+  reviewed   INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS portfolio_reports_created ON portfolio_reports (created_at DESC);
 
 -- What a builder run left in the working tree, captured when it finished.
 CREATE TABLE IF NOT EXISTS run_changes (
@@ -321,15 +342,62 @@ export class Store {
     return this.db.prepare(`UPDATE reports SET reviewed = 1 WHERE id = ?`).run(reportId).changes > 0;
   }
 
-  /** Dream runs that failed — a parse failure must surface, never drop silently (§8). */
-  failedDreams(limit = 20): Run[] {
+  addPortfolioReport(report: {
+    id: string;
+    runId: string;
+    createdAt: string;
+    health: string | null;
+    json: unknown;
+  }): void {
+    this.db
+      .prepare(
+        `INSERT INTO portfolio_reports (id, run_id, created_at, health, json)
+         VALUES (@id, @runId, @createdAt, @health, @json)`,
+      )
+      .run({ ...report, json: JSON.stringify(report.json) });
+  }
+
+  listPortfolioReports(opts: { unreviewedOnly?: boolean } = {}): StoredPortfolioReport[] {
+    const sql =
+      `SELECT * FROM portfolio_reports ${opts.unreviewedOnly ? 'WHERE reviewed = 0' : ''} ` +
+      `ORDER BY created_at DESC LIMIT 50`;
+    const rows = this.db.prepare(sql).all() as {
+      id: string;
+      run_id: string;
+      created_at: string;
+      health: string | null;
+      json: string;
+      reviewed: number;
+    }[];
+    return rows.map((r) => ({
+      id: r.id,
+      runId: r.run_id,
+      createdAt: r.created_at,
+      health: r.health,
+      report: JSON.parse(r.json) as PresidentReport,
+      reviewed: r.reviewed === 1,
+    }));
+  }
+
+  markPortfolioReviewed(reportId: string): boolean {
+    return (
+      this.db.prepare(`UPDATE portfolio_reports SET reviewed = 1 WHERE id = ?`).run(reportId).changes > 0
+    );
+  }
+
+  /** Runs of one agent that failed — a parse failure must surface, never drop silently (§8). */
+  failedRuns(agentName: string, limit = 20): Run[] {
     const rows = this.db
       .prepare(
-        `SELECT * FROM runs WHERE agent_name = 'dream-reviewer' AND status = 'error'
+        `SELECT * FROM runs WHERE agent_name = ? AND status = 'error'
          ORDER BY started_at DESC LIMIT ?`,
       )
-      .all(limit) as RunRow[];
+      .all(agentName, limit) as RunRow[];
     return rows.map(toRun);
+  }
+
+  failedDreams(limit = 20): Run[] {
+    return this.failedRuns('dream-reviewer', limit);
   }
 
   /** Rolling spend, for the dashboard's 7-day number. */

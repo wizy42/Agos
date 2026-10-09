@@ -33,7 +33,8 @@ function normalize(text: string): string {
     .trim();
 }
 
-function extractUserText(line: string): string | null {
+/** The founder's text in one transcript line, or null for anything else. */
+export function extractUserText(line: string): string | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(line);

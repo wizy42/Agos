@@ -12,6 +12,7 @@ import { listCandidates, registerProject } from './notion/hub.ts';
 import { readProjectPage } from './notion/projectPage.ts';
 import { normalizeNotionId, writeRepoPath, type RegistrySchema } from './notion/registry.ts';
 import type { Portfolio } from './portfolio.ts';
+import type { PresidentOutcome } from './president/pipeline.ts';
 import type { LibrarianOutcome } from './skills/librarian.ts';
 import { Executor } from './runtime/executor.ts';
 import { specFor } from './runtime/profiles.ts';
@@ -39,7 +40,7 @@ export interface PortfolioSource {
 }
 
 /**
- * The two scheduled loops, exposed so a human can also start them by hand.
+ * The scheduled loops, exposed so a human can also start them by hand.
  *
  * Late-bound on purpose: both are built from the Executor that `buildApp`
  * creates, so index.ts can only fill them in once this function has returned.
@@ -49,6 +50,11 @@ export interface PortfolioSource {
 export interface Jobs {
   dream(project: Project, onRun: (run: Run) => void): Promise<DreamOutcome>;
   librarian(projects: Project[], onRun: (run: Run) => void): Promise<LibrarianOutcome>;
+  president(
+    projects: Project[],
+    opts: { focus?: string },
+    onRun: (run: Run) => void,
+  ): Promise<PresidentOutcome>;
 }
 
 /**
@@ -356,23 +362,126 @@ export function buildApp(deps: {
     };
   });
 
+  /* ------------------------------ president ------------------------------ */
+
+  /** Run the weekly President pass now, optionally focused on one project. */
+  app.post<{ Body: { focus?: string } | null }>('/api/president', async (req, reply) => {
+    const runner = jobs?.();
+    if (!runner) {
+      reply.code(503);
+      return { error: 'jobs_unavailable', message: 'This server was started without the President.' };
+    }
+
+    const focus = req.body?.focus?.trim() || undefined;
+    const { projects } = await portfolio.load();
+    const started = await startJob((onRun) => runner.president(projects, { focus }, onRun));
+
+    if ('run' in started) return { run: started.run };
+    if ('failure' in started) {
+      reply.code(500);
+      const err = started.failure;
+      return { error: 'president_failed', message: err instanceof Error ? err.message : String(err) };
+    }
+
+    reply.code(409);
+    const outcome = started.outcome;
+    return {
+      error: 'not_started',
+      message: 'reason' in outcome ? outcome.reason : 'The President did not start.',
+    };
+  });
+
+  /** Past President reports, newest first, with the projects a priority may name. */
+  app.get('/api/president', async () => {
+    const { projects } = await portfolio.load();
+    return {
+      reports: store.listPortfolioReports(),
+      failures: store.failedRuns('president'),
+      projects: projects.map((p) => ({ id: p.id, name: p.name })),
+    };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/president/:id/dismiss', async (req, reply) => {
+    if (!store.markPortfolioReviewed(req.params.id)) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+    return { ok: true };
+  });
+
   /**
-   * The CEO inbox: unreviewed dream reports, plus dreams that failed. A parse
-   * failure has to be visible here — never silently dropped (§8).
+   * Approve one priority → a run on the project it names. A `founder` priority
+   * is by definition one no agent can carry out, so it is refused rather than
+   * handed to a builder.
+   */
+  app.post<{ Params: { id: string }; Body: { index?: number } | null }>(
+    '/api/president/:id/approve',
+    async (req, reply) => {
+      const stored = store.listPortfolioReports().find((r) => r.id === req.params.id);
+      if (!stored) {
+        reply.code(404);
+        return { error: 'not_found' };
+      }
+
+      const priority = stored.report.priorities[req.body?.index ?? 0];
+      if (!priority) {
+        reply.code(400);
+        return { error: 'unknown_priority' };
+      }
+      if (priority.agent === 'founder') {
+        reply.code(400);
+        return {
+          error: 'founder_action',
+          message: 'This one is for you, not an agent: ' + priority.prompt,
+        };
+      }
+
+      const { projects } = await portfolio.load();
+      const project = projects.find((p) => p.name.toLowerCase() === priority.project.toLowerCase());
+      if (!project) {
+        reply.code(400);
+        return { error: 'unknown_project', message: `No project named ${priority.project}.` };
+      }
+      if (!project.repoPath || !project.activity?.repoFound) {
+        reply.code(400);
+        return { error: 'repo_unavailable', message: `${project.name} has no usable repo path.` };
+      }
+
+      const run = executor.launch({
+        agentName: priority.agent,
+        projectId: project.id,
+        repoPath: project.repoPath,
+        permissionProfile: priority.agent,
+        prompt: priority.prompt,
+        maxTurns: 25,
+      });
+      return { run };
+    },
+  );
+
+  /**
+   * The CEO inbox: unreviewed dream reports, the latest unreviewed President
+   * report, plus runs that failed. A parse failure has to be visible here —
+   * never silently dropped (§8).
    */
   app.get('/api/inbox', async () => {
     const { projects } = await portfolio.load();
     const names = new Map(projects.map((p) => [p.id, p.name]));
+    const named = (run: Run, fallback: string) => ({
+      run,
+      projectName: run.projectId ? (names.get(run.projectId) ?? fallback) : fallback,
+    });
 
     return {
       reports: store.listReports({ unreviewedOnly: true }).map((r) => ({
         ...r,
         projectName: names.get(r.projectId) ?? r.report.project,
       })),
-      failures: store.failedDreams().map((run) => ({
-        run,
-        projectName: run.projectId ? (names.get(run.projectId) ?? 'unknown') : 'unknown',
-      })),
+      president: store.listPortfolioReports({ unreviewedOnly: true })[0] ?? null,
+      failures: [
+        ...store.failedDreams().map((run) => named(run, 'unknown')),
+        ...store.failedRuns('president').map((run) => named(run, 'portfolio')),
+      ],
     };
   });
 

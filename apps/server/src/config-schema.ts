@@ -36,5 +36,9 @@ export interface CockpitConfig {
     /** node-cron expression, local time. Weekly. */
     schedule: string;
   };
+  president: {
+    /** node-cron expression, local time. Weekly, after the librarian. */
+    schedule: string;
+  };
   projects: TrackedProject[];
 }

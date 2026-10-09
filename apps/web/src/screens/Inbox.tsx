@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DreamReport, Health, Run } from '@cockpit/core';
+import { PresidentCard, type StoredPresidentReport } from '../components/PresidentCard.tsx';
 import { ago } from '../lib/format.ts';
 import { href, navigate } from '../lib/router.ts';
 
@@ -15,8 +16,10 @@ interface InboxItem {
 
 interface InboxPayload {
   reports: InboxItem[];
+  president: StoredPresidentReport | null;
   failures: { run: Run; projectName: string }[];
 }
+
 
 const DOT: Record<Health, string> = {
   green: 'bg-emerald-400',
@@ -204,7 +207,7 @@ export function Inbox() {
   if (error) return <p className="text-sm text-rose-300">{error}</p>;
   if (!data) return <p className="text-sm text-neutral-500">Loading inbox…</p>;
 
-  const empty = data.reports.length === 0 && data.failures.length === 0;
+  const empty = data.reports.length === 0 && data.failures.length === 0 && !data.president;
 
   return (
     <div className="space-y-6">
@@ -215,10 +218,22 @@ export function Inbox() {
         </p>
       )}
 
+      {data.president && (
+        <section>
+          <h2 className="mb-3 flex items-baseline gap-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+            This week, from the President
+            <a href={href.president()} className="ml-auto font-normal normal-case tracking-normal text-neutral-600 hover:text-neutral-300">
+              history ↗
+            </a>
+          </h2>
+          <PresidentCard item={data.president} onChanged={() => void load()} />
+        </section>
+      )}
+
       {data.failures.length > 0 && (
         <section>
           <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-rose-400">
-            Failed dreams
+            Failed runs
           </h2>
           <div className="space-y-2">
             {data.failures.map(({ run, projectName }) => (

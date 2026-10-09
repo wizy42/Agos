@@ -88,6 +88,20 @@ keeps it small.
    flag when the tree was dirty beforehand. Read-only git, nothing committed:
    deciding what to keep stays with the founder.
 
+9. **A President above the dreams.** The brief's backlog deferred "a
+   cross-project portfolio dream" until the loop had run once. The founder
+   asked for it anyway, and for more than a dream: an agent that reads Notion
+   and the recent Claude Code sessions, says what is missing, and coordinates
+   the company — product, legal, marketing, traction, tooling, assets. The
+   alternative was a second framework (Hermes or similar) on top of Cockpit:
+   a second permission model, scheduler and memory, which is the sprawl this
+   app exists to end. So it is a third YAML agent on the same plumbing —
+   observer profile, one JSON contract, Notion as the durable copy — and runs
+   Mondays after the librarian, or on demand with an optional focus project.
+   Its inputs are the dreams and the project pages; with neither populated it
+   will say so rather than invent. The sequencing in §"What only the founder
+   can do" has not changed: token, `link-repos`, one real dream, then this.
+
 ## What only the founder can do
 
 Create the Notion integration and connect it to *Convergence Labs Projects*.

@@ -29,6 +29,12 @@ const config: CockpitConfig = {
     schedule: '0 3 * * 1',
   },
 
+  president: {
+    // Weekly, Monday 04:00 — after the librarian, so the week opens with a
+    // portfolio report in the inbox. "Run President now" works any time.
+    schedule: '0 4 * * 1',
+  },
+
   projects: [
     {
       // "🚀 20 — LaunchPad — Operations Layer for Vibe-Coded Apps".

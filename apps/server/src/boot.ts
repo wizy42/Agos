@@ -54,7 +54,7 @@ export function stubRequested(env: NodeJS.ProcessEnv): boolean {
 /** The one line printed when Notion is stubbed. `scripts/dev.mjs` prints the same. */
 export const STUB_BANNER =
   '[cockpit] Notion is stubbed (COCKPIT_STUB=1): sample projects from memory; ' +
-  'the wizard, dreams and the librarian answer 503.';
+  'the wizard, dreams, the librarian and the President answer 503.';
 
 /** Where a value in `process.env` came from, for error messages. */
 export type EnvSource = 'shell' | '.env' | 'unset';
