@@ -35,7 +35,7 @@ const stubValue = (process.env.COCKPIT_STUB ?? '').trim().toLowerCase();
 const stub = stubValue !== '' && stubValue !== '0' && stubValue !== 'false';
 const STUB_BANNER =
   '[cockpit] Notion is stubbed (COCKPIT_STUB=1): sample projects from memory; ' +
-  'the wizard, dreams and the librarian answer 503.';
+  'the wizard, dreams, the librarian and the President answer 503.';
 
 /** Same shape the server uses: one sentence, then the fix, indented under it. */
 function die(message, hint) {

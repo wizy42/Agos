@@ -4,6 +4,7 @@ export type Route =
   | { name: 'portfolio' }
   | { name: 'inbox' }
   | { name: 'agents' }
+  | { name: 'president' }
   | { name: 'project'; id: string }
   | { name: 'run'; id: string };
 
@@ -12,12 +13,13 @@ function parse(hash: string): Route {
   const [head, id] = path.split('/');
   if (head === 'inbox') return { name: 'inbox' };
   if (head === 'agents') return { name: 'agents' };
+  if (head === 'president') return { name: 'president' };
   if (head === 'project' && id) return { name: 'project', id };
   if (head === 'run' && id) return { name: 'run', id };
   return { name: 'portfolio' };
 }
 
-/** Hash routing — four screens do not need a router dependency. */
+/** Hash routing — a handful of screens do not need a router dependency. */
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parse(window.location.hash));
 
@@ -34,6 +36,7 @@ export const href = {
   portfolio: () => '#/',
   inbox: () => '#/inbox',
   agents: () => '#/agents',
+  president: () => '#/president',
   project: (id: string) => `#/project/${id.replace(/-/g, '')}`,
   run: (id: string) => `#/run/${id}`,
 };

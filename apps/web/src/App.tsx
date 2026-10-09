@@ -5,6 +5,7 @@ import { useRunStream } from './lib/ws.ts';
 import { Agents } from './screens/Agents.tsx';
 import { Inbox } from './screens/Inbox.tsx';
 import { Portfolio } from './screens/Portfolio.tsx';
+import { President } from './screens/President.tsx';
 import { Project } from './screens/Project.tsx';
 import { RunDetail } from './screens/RunDetail.tsx';
 
@@ -96,6 +97,16 @@ export function App() {
             CEO Inbox
           </a>
           <a
+            href={href.president()}
+            className={
+              route.name === 'president'
+                ? 'text-neutral-100'
+                : 'text-neutral-600 hover:text-neutral-300'
+            }
+          >
+            President
+          </a>
+          <a
             href={href.agents()}
             className={
               route.name === 'agents'
@@ -111,6 +122,7 @@ export function App() {
 
       {route.name === 'portfolio' && <PortfolioScreen />}
       {route.name === 'inbox' && <Inbox />}
+      {route.name === 'president' && <President />}
       {route.name === 'agents' && <Agents />}
       {route.name === 'project' && <Project id={route.id} />}
       {route.name === 'run' && <RunDetail id={route.id} />}

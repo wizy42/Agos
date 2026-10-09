@@ -13,6 +13,7 @@
     "dev": "node scripts/dev.mjs",
     "dream": "tsx apps/server/src/cli/dream.ts",
     "librarian": "tsx apps/server/src/cli/librarian.ts",
+    "president": "tsx apps/server/src/cli/president.ts",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

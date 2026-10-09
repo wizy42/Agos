@@ -8,7 +8,8 @@
     "dream": "tsx src/cli/dream.ts",
     "test": "tsx --test 'src/**/*.test.mts'",
     "typecheck": "tsc --noEmit",
-    "librarian": "tsx src/cli/librarian.ts"
+    "librarian": "tsx src/cli/librarian.ts",
+    "president": "tsx src/cli/president.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.220",

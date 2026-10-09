@@ -1,0 +1,11 @@
+name: president
+model: opus
+cwd: ${repoRoot}
+permissionProfile: observer
+# Read may reach any tracked repo by absolute path; the brief carries each
+# repo's recent commits, so git here is only for this repo. The server writes
+# the Portfolio Log via the Notion API — the agent returns the JSON report.
+allowedTools: [Read, Glob, Grep, "Bash(git log*)", "Bash(git status*)", WebSearch]
+mcp: []
+maxTurns: 40
+prompt: prompts/president.md

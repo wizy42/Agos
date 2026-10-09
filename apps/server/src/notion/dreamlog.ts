@@ -63,6 +63,15 @@ function toBlock(line: string): Record<string, unknown> | null {
     };
   }
 
+  const numbered = /^\d+\.\s+(.*)$/.exec(line);
+  if (numbered) {
+    return {
+      object: 'block',
+      type: 'numbered_list_item',
+      numbered_list_item: { rich_text: richText(numbered[1]!) },
+    };
+  }
+
   return { object: 'block', type: 'paragraph', paragraph: { rich_text: richText(line) } };
 }
 
@@ -81,8 +90,12 @@ function richText(line: string): RichText[] {
   return out;
 }
 
-/** Finds an existing "Dream Log" child page under a parent, if there is one. */
-async function findDreamLog(notion: Client, parentPageId: string): Promise<string | null> {
+/** Finds an existing child page by exact title under a parent, if there is one. */
+export async function findChildPage(
+  notion: Client,
+  parentPageId: string,
+  title: string,
+): Promise<string | null> {
   let cursor: string | undefined;
   do {
     const res = await notion.blocks.children.list({
@@ -94,7 +107,7 @@ async function findDreamLog(notion: Client, parentPageId: string): Promise<strin
       if (
         'type' in block &&
         block.type === 'child_page' &&
-        block.child_page.title.trim() === DREAM_LOG_TITLE
+        block.child_page.title.trim() === title
       ) {
         return block.id;
       }
@@ -105,27 +118,37 @@ async function findDreamLog(notion: Client, parentPageId: string): Promise<strin
   return null;
 }
 
-async function createDreamLog(notion: Client, parentPageId: string): Promise<string> {
+/** Creates a log page under a parent, with an emoji and one explanatory paragraph. */
+export async function createLogPage(
+  notion: Client,
+  parentPageId: string,
+  opts: { title: string; emoji: string; intro: string },
+): Promise<string> {
   const page = await notion.pages.create({
     parent: { type: 'page_id', page_id: parentPageId },
-    icon: { type: 'emoji', emoji: '🌙' },
-    properties: { title: { title: [text(DREAM_LOG_TITLE)] } },
+    icon: { type: 'emoji', emoji: opts.emoji },
+    properties: { title: { title: [text(opts.title)] } },
     children: [
       {
         object: 'block',
         type: 'paragraph',
-        paragraph: {
-          rich_text: [
-            text(
-              'Overnight reviews written by Cockpit. Each dream appends a dated section below; ' +
-                'the latest health and next step are mirrored onto the Cockpit Registry row.',
-            ),
-          ],
-        },
+        paragraph: { rich_text: [text(opts.intro)] },
       },
     ],
   });
   return page.id;
+}
+
+const DREAM_LOG_INTRO =
+  'Overnight reviews written by Cockpit. Each dream appends a dated section below; ' +
+  'the latest health and next step are mirrored onto the Cockpit Registry row.';
+
+async function createDreamLog(notion: Client, parentPageId: string): Promise<string> {
+  return createLogPage(notion, parentPageId, {
+    title: DREAM_LOG_TITLE,
+    emoji: '🌙',
+    intro: DREAM_LOG_INTRO,
+  });
 }
 
 /**
@@ -142,7 +165,9 @@ export async function resolveDreamLog(notion: Client, project: Project): Promise
   let lastError: unknown;
   for (const parent of parents) {
     try {
-      return (await findDreamLog(notion, parent)) ?? (await createDreamLog(notion, parent));
+      return (
+        (await findChildPage(notion, parent, DREAM_LOG_TITLE)) ?? (await createDreamLog(notion, parent))
+      );
     } catch (err) {
       lastError = err;
     }
@@ -154,14 +179,9 @@ export async function resolveDreamLog(notion: Client, project: Project): Promise
   );
 }
 
-/** Appends one dated section to the Dream Log. */
-export async function appendDream(
-  notion: Client,
-  dreamLogPageId: string,
-  report: DreamReport,
-  when: Date,
-): Promise<void> {
-  const blocks = reportToMarkdown(report, when)
+/** Appends Markdown-ish lines (headings, bullets, bold runs) to a page as blocks. */
+export async function appendMarkdown(notion: Client, pageId: string, markdown: string): Promise<void> {
+  const blocks = markdown
     .split('\n')
     .map(toBlock)
     .filter((b): b is Record<string, unknown> => b !== null);
@@ -169,10 +189,20 @@ export async function appendDream(
   // Notion caps children at 100 per append.
   for (let i = 0; i < blocks.length; i += 100) {
     await notion.blocks.children.append({
-      block_id: dreamLogPageId,
+      block_id: pageId,
       children: blocks.slice(i, i + 100) as never,
     });
   }
+}
+
+/** Appends one dated section to the Dream Log. */
+export async function appendDream(
+  notion: Client,
+  dreamLogPageId: string,
+  report: DreamReport,
+  when: Date,
+): Promise<void> {
+  await appendMarkdown(notion, dreamLogPageId, reportToMarkdown(report, when));
 }
 
 /**

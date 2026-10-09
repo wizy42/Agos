@@ -102,8 +102,8 @@ PORT=4200
 boots against three sample projects held in memory, no token needed. One is
 this repo, so its card shows real git activity; another names a clone that is
 not on this machine, so you see that state as well. Nothing touches Notion,
-the wizard, dreams and the librarian answer 503, and `npm run preflight` still
-reports the missing token. Drop the variable once the token is in `.env`.
+the wizard, dreams, the librarian and the President answer 503, and `npm run
+preflight` still reports the missing token. Drop the variable once the token is in `.env`.
 
 ---
 
@@ -278,7 +278,7 @@ No restart needed for step 1; the portfolio reads Notion live.
 | Durable state | Notion — registry, Dream Logs. Deleting `cockpit.db` loses nothing strategic. |
 | Telemetry | `cockpit.db` (gitignored) — runs, streams, costs. |
 | Agent definitions | `agents/*.yaml`, editable in the UI or on disk. |
-| Prompts | `prompts/dream.md`, `prompts/librarian.md`. |
+| Prompts | `prompts/dream.md`, `prompts/librarian.md`, `prompts/president.md`. |
 | Staged proposals | `skills-proposed/` (contents gitignored). |
 | Config | `cockpit.config.ts` — Notion ids, schedules, repo paths. |
 
