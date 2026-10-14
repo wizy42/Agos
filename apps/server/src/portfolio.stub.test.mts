@@ -15,13 +15,15 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const compact = (id: string) => id.replace(/-/g, '');
 
 test('the stub serves the sample rows, with activity read from disk rather than made up', async () => {
-  const { projects, fetchedAt } = await new StubPortfolio(repoRoot).load();
+  const { projects, fetchedAt, origin } = await new StubPortfolio(repoRoot).load();
 
   assert.deepEqual(
     projects.map((p) => p.name),
     sampleRegistry(repoRoot).map((r) => r.name),
   );
   assert.ok(!Number.isNaN(Date.parse(fetchedAt)), fetchedAt);
+  // The UI keys its footer on this: sample data must never read as live.
+  assert.equal(origin, 'stub');
 
   // Across tiers, so the portfolio renders more than one section.
   const tiers = new Set(projects.map((p) => p.tier));
@@ -47,11 +49,12 @@ test('in stub mode the portfolio renders and the Notion-backed routes answer 503
 
   const portfolio = await app.inject({ method: 'GET', url: '/api/portfolio' });
   assert.equal(portfolio.statusCode, 200);
-  const { projects } = portfolio.json<{ projects: Project[] }>();
+  const { projects, origin } = portfolio.json<{ projects: Project[]; origin: string }>();
   assert.deepEqual(
     projects.map((p) => p.name),
     sampleRegistry(repoRoot).map((r) => r.name),
   );
+  assert.equal(origin, 'stub');
 
   const [first] = projects;
   assert.ok(first);

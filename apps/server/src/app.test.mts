@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { test } from 'node:test';
 import type { Project, Run } from '@cockpit/core';
-import { buildApp, type Jobs } from './app.ts';
+import { buildApp, type Jobs, type PortfolioSource } from './app.ts';
 import { Store } from './db.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -32,7 +32,9 @@ const project: Project = {
   },
 };
 
-const portfolio = { load: async () => ({ projects: [project], fetchedAt: 'now' }) };
+const portfolio: PortfolioSource = {
+  load: async () => ({ projects: [project], fetchedAt: 'now', origin: 'notion' }),
+};
 
 const aRun = (id: string): Run => ({
   id,

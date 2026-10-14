@@ -88,6 +88,6 @@ export class StubPortfolio implements PortfolioSource {
         activity: row.repoPath ? await readActivity(row.repoPath) : null,
       })),
     );
-    return { projects, fetchedAt: new Date().toISOString() };
+    return { projects, fetchedAt: new Date().toISOString(), origin: 'stub' };
   }
 }

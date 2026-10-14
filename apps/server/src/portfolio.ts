@@ -1,5 +1,5 @@
 import { Client } from '@notionhq/client';
-import type { Project } from '@cockpit/core';
+import type { PortfolioOrigin, Project } from '@cockpit/core';
 import type { CockpitConfig } from './config-schema.ts';
 import { readActivity } from './ingest/activity.ts';
 import {
@@ -12,6 +12,8 @@ import {
 export interface Portfolio {
   projects: Project[];
   fetchedAt: string;
+  /** Which registry answered, so the UI never calls sample data live. */
+  origin: PortfolioOrigin;
 }
 
 /**
@@ -55,6 +57,6 @@ export class PortfolioService {
       }),
     );
 
-    return { projects, fetchedAt: new Date().toISOString() };
+    return { projects, fetchedAt: new Date().toISOString(), origin: 'notion' };
   }
 }

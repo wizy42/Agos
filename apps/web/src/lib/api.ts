@@ -1,8 +1,10 @@
-import type { Project } from '@cockpit/core';
+import type { PortfolioOrigin, Project } from '@cockpit/core';
 
 export interface PortfolioPayload {
   projects: Project[];
   fetchedAt: string;
+  /** `stub` under COCKPIT_STUB=1: sample projects, not the registry. */
+  origin: PortfolioOrigin;
   spend7d: { totalUsd: number; runs: number };
   activeRunIds: string[];
 }

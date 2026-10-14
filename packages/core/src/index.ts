@@ -57,6 +57,12 @@ export interface Project {
   activity: ProjectActivity | null;
 }
 
+/**
+ * Where a portfolio payload came from. `stub` is `COCKPIT_STUB=1`: sample rows
+ * served from memory, so the UI can say so instead of claiming the registry.
+ */
+export type PortfolioOrigin = 'notion' | 'stub';
+
 export type PermissionProfile = 'observer' | 'builder' | 'notion-writer';
 
 /** An `agents/*.yaml` definition, after parsing but before interpolation. */
