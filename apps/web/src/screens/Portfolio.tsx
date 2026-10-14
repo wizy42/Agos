@@ -1,4 +1,4 @@
-import { TIERS, type Project, type Tier } from '@cockpit/core';
+import { TIERS, type PortfolioOrigin, type Project, type Tier } from '@cockpit/core';
 import { AddProject } from '../components/AddProject.tsx';
 import { ProjectCard } from '../components/ProjectCard.tsx';
 import { ago } from '../lib/format.ts';
@@ -18,10 +18,12 @@ function group(projects: Project[]): [Tier | typeof UNTIERED, Project[]][] {
 export function Portfolio({
   projects,
   fetchedAt,
+  origin,
   onChanged,
 }: {
   projects: Project[];
   fetchedAt: string;
+  origin: PortfolioOrigin;
   /** Called after the registry changed here, so the caller can reload it. */
   onChanged: () => void;
 }) {
@@ -54,9 +56,17 @@ export function Portfolio({
         </section>
       ))}
 
-      <p className="text-[11px] text-neutral-600">
-        Live from the Cockpit Registry · synced {ago(fetchedAt)}
-      </p>
+      {origin === 'stub' ? (
+        // Sample data must never pass for the registry, however good it looks.
+        <p className="text-[11px] text-amber-400/80">
+          Sample projects served from memory · Notion is stubbed (COCKPIT_STUB=1) · loaded{' '}
+          {ago(fetchedAt)}
+        </p>
+      ) : (
+        <p className="text-[11px] text-neutral-600">
+          Live from the Cockpit Registry · synced {ago(fetchedAt)}
+        </p>
+      )}
     </div>
   );
 }
