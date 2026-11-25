@@ -30,10 +30,11 @@ which bills against whatever that binary is logged in as. So:
 
 ```sh
 claude auth login     # sign in with your Claude account
-claude auth status    # want: "authMethod": "oauth_token"
+claude auth status    # want: "authMethod": "claude.ai" (older CLIs: "oauth_token")
 ```
 
-`oauth_token` means your subscription. Anything else means API credits.
+`claude.ai` (or `oauth_token` on older CLIs) means your subscription. Anything
+else means API credits.
 
 **The catch:** if `ANTHROPIC_API_KEY` is set *anywhere*, it silently overrides
 that login and bills API credits instead — no error, no warning at run time.
