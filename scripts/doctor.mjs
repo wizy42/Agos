@@ -73,8 +73,11 @@ if (claude) {
     warn('Claude auth', 'could not read status', 'Run `claude auth status` yourself to check.');
   } else if (!status.loggedIn) {
     fail('Claude auth', 'not logged in', 'Run `claude auth login` and sign in to your account.');
-  } else if (status.authMethod === 'oauth_token') {
-    ok('Claude auth', `subscription (oauth, ${status.apiProvider ?? 'firstParty'})`);
+  } else if (status.authMethod === 'oauth_token' || status.authMethod === 'claude.ai') {
+    // Newer CLIs report a claude.ai login as `claude.ai` (with subscriptionType),
+    // older ones as `oauth_token`. Both are the subscription, not an API key.
+    const plan = status.subscriptionType ? `, ${status.subscriptionType}` : '';
+    ok('Claude auth', `subscription (${status.authMethod}${plan}, ${status.apiProvider ?? 'firstParty'})`);
   } else {
     warn(
       'Claude auth',
